@@ -5,7 +5,6 @@ description = "GrigoriNightDragon Launcher"
 edition = "2021"
 
 [lib]
-name = "grigorinightdragon_launcher_lib"
 crate-type = ["staticlib", "cdylib"]
 
 [build-dependencies]
