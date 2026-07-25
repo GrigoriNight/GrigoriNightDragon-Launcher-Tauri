@@ -1,0 +1,2 @@
+Copy your Unreal build into this folder, including GrigoriNightDragon.exe.
+The launcher's Play button runs game/GrigoriNightDragon.exe.
