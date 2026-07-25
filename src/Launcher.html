@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GrigoriNightDragon Launcher</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
+<style>
+  .stage { background: radial-gradient(circle at 70% 25%, #3a0d0d 0%, #140606 45%, #050505 100%), #000; }
+  @keyframes slide { from { background-position: 0 0; } to { background-position: 40px 0; } }
+  .indeterminate { background-image: repeating-linear-gradient(45deg,
+      rgba(255,255,255,.25) 0 10px, rgba(255,255,255,0) 10px 20px); animation: slide .6s linear infinite; }
+  .field { width:100%; margin-top:4px; padding:8px 12px; background:rgba(0,0,0,.6);
+           border:1px solid rgba(255,255,255,.1); border-radius:8px; color:#fff; outline:none; }
+  .field:focus { border-color:#ef4444; }
+.mdl{position:fixed;inset:0;z-index:50;align-items:center;justify-content:center;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);padding:1rem}
+.mdc{width:100%;background:#09090b;border:1px solid rgba(255,255,255,.1);border-radius:1rem;padding:1.5rem;box-shadow:0 25px 50px -12px rgba(0,0,0,.6)}
+.xb{color:#9ca3af;font-size:1.875rem;line-height:1}.xb:hover{color:#fff}
+.ob{border:1px solid rgba(255,255,255,.1);border-radius:.75rem}.ob:hover{background:rgba(255,255,255,.1)}
+.ob:disabled{opacity:.4;cursor:not-allowed}
+.cd{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:.75rem}
+.tg{display:flex;align-items:center;justify-content:space-between;padding:.75rem 0;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.05)}
+.ovf{overflow-y:auto;padding:2.5rem;background:#09090b}</style>
+</head>
+
+<body class="bg-black text-white overflow-hidden">
+<div class="h-screen flex flex-col">
+
+<!-- TOP BAR -->
+<div class="h-20 flex items-center justify-between px-8 border-b border-white/10 bg-black/60 backdrop-blur-md">
+  <div class="flex items-center gap-6">
+    <div class="flex items-center gap-3">
+      <img src="GrigoriNightDragon-logo.png" alt="GrigoriNightDragon"
+           onerror="this.style.display='none'" class="w-11 h-11 object-contain"/>
+      <div class="hidden lg:block">
+        <div class="font-bold tracking-widest uppercase text-sm">GrigoriNightDragon</div>
+        <div class="text-[10px] text-gray-400 tracking-widest">MMORPG Launcher</div>
+      </div>
+    </div>
+    <!-- TABS -->
+    <div class="flex items-center gap-6">
+      <button id="tab-play"    onclick="showTab('play')">Play</button>
+      <button id="tab-news"    onclick="showTab('news')">News</button>
+      <button id="tab-store"   onclick="showTab('store')">Store</button>
+      <button id="tab-support" onclick="showTab('support')">Support</button>
+    </div>
+  </div>
+
+  <div class="flex items-center gap-3">
+    <button id="accountBtn" onclick="openAccount()"
+      class="px-4 py-2 border border-white/10 rounded-lg hover:bg-white/10 text-sm uppercase tracking-widest max-w-[180px] truncate">Sign in</button>
+    <button id="adminBtn" onclick="openAdmin()"
+      class="hidden px-4 py-2 rounded-lg text-sm uppercase tracking-widest bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold hover:brightness-110">Admin</button>
+    <button id="settingsBtn"
+      class="px-3 py-2 border border-white/10 rounded-lg hover:bg-white/10 text-lg" title="Settings">⚙</button>
+  </div>
+</div>
+
+<!-- CONTENT -->
+<div class="flex-1 flex overflow-hidden">
+
+  <!-- PLAY -->
+  <div id="view-play" class="stage flex-1 relative">
+    <img src="https://img1.wsimg.com/blobby/go/4eb53488-7334-42b7-9c77-28becd180ebc/downloads/396e2fba-47e5-49b6-8016-e6019fa0941e/GrigoriNightDragon-bg.jpg?ver=1784952149513"
+         onerror="this.style.display='none'" class="absolute w-full h-full object-cover"/>
+    <div class="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-transparent"></div>
+    <div class="relative z-10 h-full flex flex-col justify-between p-12 overflow-y-auto">
+      <div>
+        <h1 class="text-6xl font-black uppercase">Enter <span class="text-red-500">GrigoriNightDragon</span></h1>
+        <p class="mt-6 text-gray-300 max-w-xl">Dynamic MMORPG world with evolving AI bosses, guild wars, and legendary loot.</p>
+      </div>
+      <div id="maintBanner" class="hidden mb-3 max-w-3xl px-4 py-2 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs uppercase tracking-widest">Maintenance ON — players locked out. Visible to admins only.</div>
+    <div class="bg-black/60 border border-white/10 rounded-2xl p-6 backdrop-blur-xl max-w-3xl">
+        <div class="flex justify-between text-sm mb-2"><span id="modeText">Ready to install</span><span id="percent">0%</span></div>
+        <div class="w-full h-4 bg-gray-900 rounded-full overflow-hidden border border-white/10">
+          <div id="bar" class="h-full bg-gradient-to-r from-red-600 to-orange-400" style="width:0%"></div></div>
+        <div id="stats" class="text-xs text-gray-400 mt-2">Press Install to begin.</div>
+        <div class="flex gap-4 mt-6">
+          <button id="installBtn" onclick="startDownload()" disabled
+            class="flex-1 bg-gradient-to-r from-red-700 to-orange-500 py-4 rounded-xl font-bold uppercase tracking-widest hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed">Install</button>
+          <button id="playBtn" onclick="launchGame()" disabled
+            class="hidden flex-1 bg-gradient-to-r from-green-600 to-emerald-500 py-4 rounded-xl font-bold uppercase tracking-widest hover:brightness-110 disabled:opacity-50">Play</button>
+          <button id="updateBtn" onclick="runUpdate()" disabled
+            class="hidden flex-1 bg-gradient-to-r from-amber-400 to-yellow-500 text-black py-4 rounded-xl font-bold uppercase tracking-widest hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed">Update</button>
+          <button id="repairBtn" onclick="repairFiles()" disabled
+            class="ob px-6 disabled:opacity-40">Repair</button>
+          <button id="cancelBtn" onclick="cancelDownload()" disabled
+            class="ob px-6 disabled:opacity-40">Cancel</button>
+        </div>
+        <div id="authHint" class="text-xs text-amber-400 mt-3 hidden">Sign in (top-right) to install and play.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NEWS -->
+  <div id="view-news" class="hidden flex-1 ovf">
+    <h1 class="text-3xl font-black uppercase tracking-widest mb-6">News</h1>
+    <div id="newsList" class="grid md:grid-cols-2 gap-5 max-w-5xl"><div class="cd p-6"><div class="text-red-400 text-xs uppercase mb-2">Update</div><div class="font-bold text-xl">Elyria</div><p class="text-gray-400 mt-2 text-sm">Massive world update.</p></div></div><p class="text-gray-600 text-xs mt-6"></p>
+  </div>
+
+  <!-- STORE -->
+  <div id="view-store" class="hidden flex-1 ovf">
+    <div class="flex items-center justify-between mb-6 max-w-5xl">
+      <h1 class="text-3xl font-black uppercase tracking-widest">Store</h1>
+      <div class="flex items-center gap-3">
+        <div id="walletBar" class="text-xs text-gray-400"></div>
+        <button onclick="loadStore(true)" class="px-3 py-1.5 border border-white/10 rounded-lg text-xs uppercase tracking-widest hover:bg-white/10">Refresh</button>
+      </div>
+    </div>
+    <div id="storeLock" class="hidden mb-4 px-4 py-2 rounded-lg bg-red-500/15 border border-red-500/40 text-red-300 text-xs"></div>
+    <div id="storeMsg" class="text-sm text-gray-400 mb-4"></div>
+    <div id="storeGrid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-5xl items-stretch"></div>
+    <div id="storePager" class="hidden items-center justify-center gap-3 mt-6 max-w-5xl">
+      <button onclick="storeGo(-1)" id="pagePrev" class="px-4 py-2 border border-white/10 rounded-lg text-sm hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed">‹ Prev</button>
+      <div id="pageNums" class="flex items-center gap-1"></div>
+      <button onclick="storeGo(1)" id="pageNext" class="px-4 py-2 border border-white/10 rounded-lg text-sm hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed">Next ›</button>
+    </div>
+  </div>
+
+  <!-- SUPPORT -->
+  <div id="view-support" class="hidden flex-1 ovf">
+    <h1 class="text-3xl font-black uppercase tracking-widest mb-6">Support</h1>
+    <div class="max-w-3xl space-y-4">
+      <div class="cd p-5">
+        <div class="font-bold">Game won't start or files look corrupted?</div>
+        <p class="text-gray-400 text-sm mt-1">Verify and re-download broken files.</p>
+        <button onclick="showTab('play'); repairFiles();"
+          class="mt-3 px-4 py-2 border border-white/10 rounded-lg text-sm hover:bg-white/10">Verify game files</button>
+      </div>
+      <div class="cd p-5">
+        <div class="font-bold">Can't sign in?</div>
+        <p class="text-gray-400 text-sm mt-1">Use the account button to log in or register.</p>
+      </div>
+      <div class="cd p-5">
+        <div class="font-bold">Found a bug?</div>
+        <p class="text-gray-400 text-sm mt-1">Describe what went wrong. Account and device info attach automatically.</p>
+        <button onclick="openBugReport()"
+          class="mt-3 px-4 py-2 bg-gradient-to-r from-red-700 to-orange-500 rounded-lg text-sm font-bold uppercase tracking-widest hover:brightness-110">🐞 Report a bug</button>
+      </div>
+      <div class="text-xs text-gray-600">Reports go to GrigoriNightDragon@gmail.com</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOM STATUS BAR -->
+<div class="h-10 flex items-center gap-6 px-8 border-t border-white/10 bg-black/70 text-xs">
+  <div id="status" onclick="checkStatus()" title="Click to re-check connection"
+       class="text-yellow-400 cursor-pointer select-none animate-pulse">● Checking...</div>
+  <div id="verInfo" class="text-gray-500"></div>
+  <div id="acctBadge" class="text-gray-400 ml-auto">Not signed in</div>
+</div>
+</div>
+
+<!-- LAUNCHER UPDATE FACE (maintenance takeover) -->
+<div id="updateFace" class="hidden fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black text-center px-6">
+  <img src="GrigoriNightDragon-logo.png" onerror="this.style.display='none'" class="w-20 h-20 object-contain mb-5 animate-pulse"/>
+  <div class="text-red-500 text-xs uppercase tracking-[0.35em] mb-2">Maintenance</div>
+  <div id="updateFaceText" class="text-3xl font-black uppercase tracking-widest">Updating Launcher</div>
+  <div class="w-full max-w-md mt-7">
+    <div class="flex justify-between text-xs text-gray-400 mb-1"><span id="updateFaceSub">Please wait…</span><span id="ufPct">0%</span></div>
+    <div class="w-full h-3 bg-gray-900 rounded-full overflow-hidden border border-white/10">
+      <div id="ufBar" class="h-full bg-gradient-to-r from-red-600 to-orange-400" style="width:0%"></div>
+    </div>
+    <div id="ufStats" class="text-xs text-gray-500 mt-2">Connecting…</div>
+  </div>
+  <button id="updateRefreshBtn" onclick="location.reload()" class="hidden mt-6 px-5 py-2 border border-white/10 rounded-lg text-sm hover:bg-white/10">Refresh now</button>
+</div>
+
+<!-- ADMIN PANEL -->
+<div id="adminModal" class="hidden flex mdl" style="z-index:65">
+  <div class="mdc max-w-lg">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-xl font-bold uppercase tracking-widest">Admin Panel</h2>
+      <button onclick="closeAdmin()" class="xb">&times;</button>
+    </div>
+    <div class="max-h-[62vh] overflow-y-auto pr-1">
+      <div class="border border-white/10 rounded-xl p-4 mb-5">
+        <h3 class="uppercase tracking-widest text-gray-400 text-xs mb-3">Maintenance</h3>
+        <label class="flex items-center justify-between py-1 cursor-pointer">
+          <span class="text-sm text-gray-300">Maintenance mode</span>
+          <input id="mt_on" type="checkbox" class="w-5 h-5 accent-amber-500"/></label>
+        <input id="mt_title" class="field" placeholder="Headline (e.g. Server maintenance)"/>
+        <textarea id="mt_msg" rows="2" class="field" style="resize:vertical" placeholder="Message shown to players"></textarea>
+      </div>
+      <div class="border border-white/10 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="uppercase tracking-widest text-gray-400 text-xs">Breaking news</h3>
+          <button onclick="addNewsRow()" class="px-3 py-1 border border-white/10 rounded-lg text-xs hover:bg-white/10">+ Add</button>
+        </div>
+        <div id="liveNow" class="text-xs text-gray-500 mb-3"></div>
+        <div id="adminNews"></div>
+      </div>
+    </div>
+    <div class="flex gap-3 mt-5">
+      <button onclick="saveAdmin()" class="flex-1 bg-gradient-to-r from-amber-500 to-yellow-500 text-black py-3 rounded-xl font-bold uppercase tracking-widest hover:brightness-110">Publish live</button>
+      <button onclick="closeAdmin()" class="ob px-6">Close</button>
+    </div>
+    <div id="adminMsg" class="text-xs text-amber-400 mt-3"></div>
+  </div>
+</div>
+
+<!-- ACCOUNT MODAL -->
+<div id="accountModal" class="hidden flex mdl">
+  <div class="mdc max-w-md">
+    <div class="flex justify-between items-center mb-5">
+      <h2 class="text-xl font-bold uppercase tracking-widest">Account</h2>
+      <button onclick="closeAccount()" class="xb">&times;</button>
+    </div>
+    <div id="loggedOut">
+      <div class="flex gap-2 mb-4">
+        <button id="tabLogin" onclick="authTab('login')" class="flex-1 py-2 rounded-lg text-xs uppercase tracking-widest bg-white/10">Log in</button>
+        <button id="tabRegister" onclick="authTab('register')" class="flex-1 py-2 rounded-lg text-xs uppercase tracking-widest border border-white/10">Register</button>
+      </div>
+      <div id="formLogin" class="space-y-3">
+        <input id="loginId" class="field" placeholder="Email or username"/>
+        <input id="loginPass" type="password" class="field" placeholder="Password"/>
+        <button id="loginBtn" onclick="doLogin()" class="w-full bg-gradient-to-r from-red-700 to-orange-500 py-2.5 rounded-lg font-bold uppercase tracking-widest hover:brightness-110 disabled:opacity-50">Log in</button>
+      </div>
+      <div id="formRegister" class="space-y-3 hidden">
+        <input id="regUser" class="field" placeholder="Username (3–20 characters)"/>
+        <input id="regEmail" type="email" class="field" placeholder="Email"/>
+        <input id="regPass" type="password" class="field" placeholder="Password (min 6 characters)"/>
+        <button id="registerBtn" onclick="doRegister()" class="w-full bg-gradient-to-r from-red-700 to-orange-500 py-2.5 rounded-lg font-bold uppercase tracking-widest hover:brightness-110 disabled:opacity-50">Create account</button>
+      </div>
+      <div id="loginError" class="text-red-400 text-xs mt-3 hidden"></div>
+    </div>
+    <div id="loggedIn" class="hidden">
+      <div class="flex items-center gap-3 mb-3">
+        <img id="pfAvatar" alt="" class="w-14 h-14 rounded-lg object-cover bg-white/10" onerror="this.style.visibility='hidden'">
+        <div class="min-w-0">
+          <div id="accountName" class="font-bold text-white truncate"></div>
+          <div id="accountId" class="text-xs text-gray-500 truncate"></div>
+        </div>
+      </div>
+      <div id="adminDiag" class="text-xs mb-3"></div>
+      <label class="text-xs text-gray-400">Username</label>
+      <input id="pf_name" class="field" placeholder="Display name"/>
+      <label class="text-xs text-gray-400">Email</label>
+      <input id="pf_email" type="email" class="field" placeholder="you@example.com"/>
+      <label class="text-xs text-gray-400">Avatar image URL</label>
+      <input id="pf_avatar" class="field" placeholder="https://.../avatar.png"/>
+      <button onclick="saveProfile()" class="mt-3 w-full bg-gradient-to-r from-red-700 to-orange-500 py-2.5 rounded-lg font-bold uppercase tracking-widest text-sm hover:brightness-110">Save profile</button>
+      <button onclick="resetPassword()" class="mt-2 w-full ob py-2.5 text-sm uppercase tracking-widest">Change password</button>
+      <button onclick="doLogout()" class="mt-2 w-full ob py-2.5 text-sm uppercase tracking-widest">Log out</button>
+      <div id="pfMsg" class="text-xs text-amber-400 mt-2"></div>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div id="settingsModal" class="hidden flex mdl">
+  <div class="mdc max-w-md">
+    <div class="flex justify-between items-center mb-5">
+      <h2 class="text-xl font-bold uppercase tracking-widest">Settings</h2>
+      <button onclick="closeSettings()" class="xb">&times;</button>
+    </div>
+    <label class="tg">
+      <span class="text-sm text-gray-300">Hide launcher while the game is running</span>
+      <input id="set_hide" type="checkbox" class="w-5 h-5 accent-red-600"/></label>
+    <label class="tg">
+      <span class="text-sm text-gray-300">Automatically install updates</span>
+      <input id="set_auto" type="checkbox" class="w-5 h-5 accent-red-600"/></label>
+    <label class="tg">
+      <span class="text-sm text-gray-300">Background music</span>
+      <input id="set_music" type="checkbox" class="w-5 h-5 accent-red-600"/></label>
+    <label class="flex items-center justify-between py-3 cursor-pointer">
+      <span class="text-sm text-gray-300">Mute sound effects</span>
+      <input id="set_mute" type="checkbox" class="w-5 h-5 accent-red-600"/></label>
+    <div class="flex gap-3 mt-6">
+      <button onclick="saveSettings()" class="flex-1 bg-gradient-to-r from-red-700 to-orange-500 py-3 rounded-xl font-bold uppercase tracking-widest hover:brightness-110">Save</button>
+      <button onclick="closeSettings()" class="ob px-6">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- BUG REPORT MODAL -->
+<div id="bugModal" class="hidden flex mdl">
+  <div class="mdc max-w-md">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-xl font-bold uppercase tracking-widest">Report a Bug</h2>
+      <button onclick="closeBugReport()" class="xb">&times;</button>
+    </div>
+    <p class="text-xs text-gray-400 mb-3">Help us find and fix problems. Fields marked * are required.</p>
+    <div class="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="text-xs text-gray-400">In-game username</label>
+          <input id="bugUser" class="field" placeholder="auto-filled if signed in"/></div>
+        <div><label class="text-xs text-gray-400">Game version</label>
+          <input id="bugVer" class="field" placeholder="auto-filled"/></div>
+      </div>
+      <div><label class="text-xs text-gray-400">Bug type *</label>
+        <select id="bugType" class="field">
+          <option value="">Select a type</option>
+          <option>Gameplay Bug</option><option>Game Crash</option><option>Graphics Bug</option>
+          <option>Quest Bug</option><option>NPC Bug</option><option>Inventory Bug</option>
+          <option>Multiplayer Bug</option><option>Performance Bug</option><option>Other</option>
+        </select></div>
+      <div><label class="text-xs text-gray-400">Bug title *</label>
+        <input id="bugTitle" class="field" maxlength="200" placeholder="Short summary"/></div>
+      <div><label class="text-xs text-gray-400">Where did it happen?</label>
+        <input id="bugLoc" class="field" maxlength="200" placeholder="e.g. Elyria — Wizard Academy"/></div>
+      <div><label class="text-xs text-gray-400">What happened? *</label>
+        <textarea id="bugText" rows="4" class="field" style="resize:vertical" placeholder="Explain exactly what happened…"></textarea></div>
+      <details>
+        <summary class="text-xs text-gray-500 cursor-pointer">Info attached automatically</summary>
+        <pre id="bugDiag" class="text-[10px] text-gray-500 whitespace-pre-wrap mt-2 bg-black/40 p-2 rounded"></pre>
+      </details>
+    </div>
+    <div class="flex gap-3 mt-4">
+      <button onclick="sendBugEmail()" class="flex-1 bg-gradient-to-r from-red-700 to-orange-500 py-2.5 rounded-lg font-bold uppercase tracking-widest hover:brightness-110">Send report</button>
+      <button onclick="copyBugReport()" class="px-5 border border-white/10 rounded-lg text-sm hover:bg-white/10">Copy</button>
+    </div>
+    <div id="bugMsg" class="text-xs text-amber-400 mt-3"></div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+/* ===== DEVELOPER CONFIG (players never see this) ===== */
+const CONFIG = {
+  gameUrl: "https://img1.wsimg.com/blobby/go/4eb53488-7334-42b7-9c77-28becd180ebc/downloads/5d92b02d-f995-4339-b839-2675c10b35ea/game%20(2).zip?ver=1784674058880",
+  saveName: "GrigoriNightDragon-Setup.zip",
+  manifestUrl: "",   // add your manifest.json link here once it's hosted (enables update checks + Repair)
+  expectedHash: "",
+  recheckSeconds: 30,
+  verifyAfterDownload: true,
+  playfabTitleId: "17CBF3",   // GrigoriNightDragon PlayFab title
+  playfabCatalog: "Items_Items",   // legacy catalog version
+  playfabStoreId: "01",            // store ID
+  buyFunction: "buyItemCascade",   // CloudScript handler: "buyItemCascade" or "buyItemCopper" (recommended)
+  catalogVersion: "Items_Items",   // Legacy catalog name
+  storeId: "01",                   // Legacy store ID
+  supportEmail: "GrigoriNightDragon@gmail.com",
+  emailjsPublicKey: "ObdglZ470ImCyPmy8",   // EmailJS PUBLIC key (safe in client)
+  emailjsService:   "service_cgr7tvo",      // EmailJS service ID
+  emailjsTemplate:  "template_by4ls5g",      // EmailJS template ID
+  launcherUrl: "",   // direct URL to the launcher update file (installer/zip); downloaded with live progress when launcherVersion changes
+  gameExe: "GrigoriNightDragon.exe",   // executable the desktop shell launches on Play
+  musicUrl: "https://img1.wsimg.com/blobby/go/4eb53488-7334-42b7-9c77-28becd180ebc/downloads/4cffe538-dcd7-40bf-8cc7-2a6667083f69/Untitled%20(3).mp3?ver=1784667822476"   // background music track
+};
+const LAUNCHER_VERSION = "1.0.0";   // bump this when you deploy a new launcher build
+
+const PREF_DEFAULTS = { hideOnPlay:true, muted:false, musicOn:true, autoUpdate:false, account:null, installedVersion:null };
+let _mem={};
+function loadPrefs(){ try{ return JSON.parse(localStorage.getItem("gnd_prefs"))||{}; }catch{ return _mem; } }
+function persist(o){ try{ localStorage.setItem("gnd_prefs", JSON.stringify(o)); }catch{ _mem=o; } }
+let saved = Object.assign({}, PREF_DEFAULTS, loadPrefs());
+
+let controller=null, busy=false, serverOnline=false, checking=false, recheckTimer=null, latestVersion=null, lastPrimary="";
+function loggedIn(){ return !!saved.account; }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g,c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
+
+// ---- tabs ---------------------------------------------------------------
+function tabClass(active){ return "px-1 py-1 text-sm uppercase tracking-widest border-b-2 transition " + (active?"border-red-500 text-white":"border-transparent text-gray-400 hover:text-white"); }
+function showTab(name){
+  ["play","news","store","support"].forEach(t=>{
+    $("view-"+t).classList.toggle("hidden", t!==name);
+    $("tab-"+t).className = tabClass(t===name);
+  });
+  if(name==="store") loadStore();
+}
+
+// ---- sound --------------------------------------------------------------
+let audioCtx=null;
+function ac(){ audioCtx=audioCtx||new(window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==="suspended")audioCtx.resume(); return audioCtx; }
+function beep(kind){ if(saved.muted) return;
+  try{ const a=ac(),o=a.createOscillator(),g=a.createGain(),now=a.currentTime; o.type="sine";
+    o.frequency.value=kind==="login"?660:kind==="error"?200:kind==="play"?540:kind==="hover"?720:430;
+    const peak=kind==="hover"?0.05:0.12, dur=kind==="hover"?0.08:0.16;
+    g.gain.setValueAtTime(0.0001,now); g.gain.exponentialRampToValueAtTime(peak,now+0.01); g.gain.exponentialRampToValueAtTime(0.0001,now+dur);
+    o.connect(g); g.connect(a.destination); o.start(now); o.stop(now+dur+0.01); }catch{} }
+// soft UI click (a quick two-tone tick) for general button presses
+function click(){ if(saved.muted) return;
+  try{ const a=ac(),now=a.currentTime;
+    [520,780].forEach((f,i)=>{ const o=a.createOscillator(),g=a.createGain(); o.type="triangle"; o.frequency.value=f;
+      const t=now+i*0.03; g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.06,t+0.008); g.gain.exponentialRampToValueAtTime(0.0001,t+0.06);
+      o.connect(g); g.connect(a.destination); o.start(t); o.stop(t+0.07); }); }catch{} }
+
+// ---- background music (from CONFIG.musicUrl) ----------------------------
+let bgm=null, musicStarted=false;
+function initMusic(){
+  if(!CONFIG.musicUrl) return;
+  bgm=new Audio(CONFIG.musicUrl); bgm.loop=true; bgm.preload="auto"; bgm.volume=0;
+  bgm.addEventListener("error", ()=>console.warn("Launcher music failed to load:", CONFIG.musicUrl));
+}
+function startMusic(){
+  if(musicStarted || !bgm || !saved.musicOn) return;
+  musicStarted=true;
+  bgm.play().then(()=>{
+    fadeMusic(0.35, 1500);
+    // only stop listening for a gesture once playback truly started
+    window.removeEventListener("pointerdown", firstGesture);
+    window.removeEventListener("keydown", firstGesture);
+  }).catch((e)=>{ musicStarted=false; console.warn("Music blocked/failed, will retry on next click:", e && e.message); });
+}
+function fadeMusic(target, ms){
+  if(!bgm) return; const start=bgm.volume, steps=24, dt=ms/steps; let i=0;
+  const iv=setInterval(()=>{ i++; bgm.volume=Math.max(0,Math.min(1,start+(target-start)*(i/steps))); if(i>=steps){ clearInterval(iv); if(target===0){ try{bgm.pause();}catch{} musicStarted=false; } } }, dt);
+}
+function applyMusic(){
+  if(!bgm) return;
+  if(saved.musicOn){ startMusic(); } else { fadeMusic(0, 400); }
+}
+
+// ---- account modal ------------------------------------------------------
+function openAccount(){ beep(); authTab("login"); loginError(""); renderAccount(); $("accountModal").classList.remove("hidden"); }
+function closeAccount(){ $("accountModal").classList.add("hidden"); }
+
+// ---- settings modal -----------------------------------------------------
+function openSettings(){ beep(); $("set_hide").checked=!!saved.hideOnPlay; $("set_auto").checked=!!saved.autoUpdate; $("set_music").checked=!!saved.musicOn; $("set_mute").checked=!!saved.muted; $("settingsModal").classList.remove("hidden"); }
+function closeSettings(){ $("settingsModal").classList.add("hidden"); }
+function saveSettings(){ saved.hideOnPlay=$("set_hide").checked; saved.autoUpdate=$("set_auto").checked; saved.musicOn=$("set_music").checked; saved.muted=$("set_mute").checked; persist(saved); applyMusic(); closeSettings(); maybeAutoUpdate(); }
+
+// ---- PlayFab auth -------------------------------------------------------
+function pfBase(){ return "https://"+CONFIG.playfabTitleId+".playfabapi.com"; }
+async function pfPost(path, body){
+  const r=await fetch(pfBase()+path,{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) });
+  let d={}; try{ d=await r.json(); }catch{}
+  if(!r.ok || d.code!==200) throw new Error(d.errorMessage || d.error || ("HTTP "+r.status));
+  return d.data;
+}
+async function pfLogin(identifier, password){
+  const isEmail=identifier.includes("@");
+  const path=isEmail?"/Client/LoginWithEmailAddress":"/Client/LoginWithPlayFab";
+  const body=isEmail?{TitleId:CONFIG.playfabTitleId,Email:identifier,Password:password}:{TitleId:CONFIG.playfabTitleId,Username:identifier,Password:password};
+  const d=await pfPost(path, body); return { name:identifier, playFabId:d.PlayFabId, ticket:d.SessionTicket };
+}
+async function pfRegister(username, email, password){
+  const d=await pfPost("/Client/RegisterPlayFabUser",{TitleId:CONFIG.playfabTitleId,Username:username,Email:email,Password:password,RequireBothUsernameAndEmail:true});
+  return { name:username, playFabId:d.PlayFabId, ticket:d.SessionTicket };
+}
+function friendlyAuthError(e){ return (e instanceof TypeError) ? "Couldn't reach PlayFab — check your connection." : (e.message||"Something went wrong."); }
+
+// ---- PlayFab store (legacy catalog) -------------------------------------
+async function pfAuth(path, body){
+  if(!saved.account || !saved.account.ticket) throw new Error("Not signed in.");
+  const r=await fetch(pfBase()+path,{ method:"POST",
+    headers:{"Content-Type":"application/json","X-Authorization":saved.account.ticket},
+    body:JSON.stringify(body||{}) });
+  let d={}; try{ d=await r.json(); }catch{}
+  if(!r.ok || d.code!==200) throw new Error(d.errorMessage || d.error || ("HTTP "+r.status));
+  return d.data;
+}
+// ---- currency: 100 copper = 1 silver, 100 silver = 1 gold ---------------
+const CUR_NAMES={GC:"Gold",SC:"Silver",CC:"Copper"};
+const COPPER_PER_SILVER=100, SILVER_PER_GOLD=100;
+const COPPER_PER_GOLD=COPPER_PER_SILVER*SILVER_PER_GOLD;   // 10,000
+function toCopper(v){ return (Number(v.GC||0)*COPPER_PER_GOLD)+(Number(v.SC||0)*COPPER_PER_SILVER)+Number(v.CC||0); }
+function fmtCoins(copper){
+  copper=Math.max(0,Math.round(copper));
+  const g=Math.floor(copper/COPPER_PER_GOLD);
+  const s=Math.floor((copper%COPPER_PER_GOLD)/COPPER_PER_SILVER);
+  const c=copper%COPPER_PER_SILVER;
+  const parts=[];
+  if(g) parts.push(`<span class="text-yellow-400">${g}g</span>`);
+  if(s) parts.push(`<span class="text-gray-300">${s}s</span>`);
+  if(c||!parts.length) parts.push(`<span class="text-orange-400">${c}c</span>`);
+  return parts.join(" ");
+}
+function priceText(prices){
+  const p=prices||{};
+  const copper=toCopper(p);
+  const rm=Number(p.RM||0);
+  const out=[];
+  if(copper>0) out.push(fmtCoins(copper));
+  if(rm>0) out.push("$"+(rm/100).toFixed(2));
+  return out.length? out.join(" / ") : "Free";
+}
+let storeLoaded=false, storeItems=[], storeCat={}, storePage=0;
+const STORE_PER_PAGE=6;
+
+function storeCard(it){
+  const c=storeCat[it.ItemId]||{};
+  const name=escapeHtml(c.DisplayName||it.ItemId);
+  const desc=escapeHtml(c.Description||"");
+  const price=priceText(it.VirtualCurrencyPrices);
+  const img=c.ItemImageUrl||c.ItemImageUri||"";
+  // With an image: fill the whole panel edge-to-edge (no gradient showing through).
+  const art = img
+    ? `<img src="${escapeHtml(img)}" alt="" loading="lazy" class="absolute inset-0 w-full h-full object-cover"
+           onerror="this.remove()">`
+    : `<span class="text-3xl opacity-60">🐉</span>`;
+  const cd=cooldownLeft(it.ItemId);
+  const btn = maintLock()
+    ? `<button disabled class="px-4 py-2 rounded-lg bg-white/10 text-gray-500 text-xs font-bold uppercase tracking-widest cursor-not-allowed">Closed</button>`
+    : cd>0
+    ? `<button disabled title="Already owned — available again in ${cooldownLabel(cd)}"
+         class="px-4 py-2 rounded-lg bg-white/10 text-gray-400 text-xs font-bold uppercase tracking-widest cursor-not-allowed">Owned · ${cooldownLabel(cd)}</button>`
+    : `<button onclick="buyItem('${escapeHtml(it.ItemId)}')"
+         class="px-5 py-2 rounded-lg bg-gradient-to-r from-red-700 to-orange-500 text-xs font-bold uppercase tracking-widest hover:brightness-110">Buy</button>`;
+  return `<div class="cd p-5 flex flex-col h-full">
+    <div class="relative h-28 rounded-lg mb-4 overflow-hidden flex items-center justify-center bg-gradient-to-br from-red-900/40 to-orange-900/30">${art}</div>
+    <div class="font-bold leading-tight">${name}</div>
+    <div class="text-gray-400 text-sm mt-1 mb-3 flex-1">${desc}</div>
+    <div class="flex items-center justify-between gap-3 mt-auto">
+      <div class="text-sm">${price}</div>
+      ${btn}
+    </div>
+  </div>`;
+}
+function storePages(){ return Math.max(1, Math.ceil(storeItems.length/STORE_PER_PAGE)); }
+function renderStore(){
+  const grid=$("storeGrid"), pager=$("storePager");
+  const pages=storePages();
+  if(storePage>=pages) storePage=pages-1;
+  if(storePage<0) storePage=0;
+  const slice=storeItems.slice(storePage*STORE_PER_PAGE, (storePage+1)*STORE_PER_PAGE);
+  grid.innerHTML = slice.map(storeCard).join("");
+  if(pages<=1){ pager.classList.add("hidden"); pager.classList.remove("flex"); return; }
+  pager.classList.remove("hidden"); pager.classList.add("flex");
+  $("pagePrev").disabled = storePage===0;
+  $("pageNext").disabled = storePage===pages-1;
+  let nums="";
+  for(let i=0;i<pages;i++){
+    nums += `<button onclick="storeSet(${i})" class="w-8 h-8 rounded-lg text-sm ${i===storePage?'bg-gradient-to-r from-red-700 to-orange-500 font-bold':'border border-white/10 hover:bg-white/10'}">${i+1}</button>`;
+  }
+  $("pageNums").innerHTML=nums;
+}
+function storeGo(delta){ storePage+=delta; renderStore(); document.getElementById("view-store").scrollTop=0; }
+function storeSet(n){ storePage=n; renderStore(); document.getElementById("view-store").scrollTop=0; }
+
+async function loadStore(force){
+  const grid=$("storeGrid"), msg=$("storeMsg");
+  if(!loggedIn()){ grid.innerHTML=""; $("storePager").classList.add("hidden"); msg.innerHTML='Sign in to view the store. <button onclick="openAccount()" class="underline text-red-400">Sign in</button>'; return; }
+  if(storeLoaded && !force){ renderStore(); return; }
+  msg.textContent="Loading store…"; grid.innerHTML="";
+  try{
+    const data=await pfAuth("/Client/GetStoreItems",{ StoreId:CONFIG.playfabStoreId, CatalogVersion:CONFIG.playfabCatalog });
+    storeItems=data.Store||[];
+    storeCat={};
+    try{
+      const c=await pfAuth("/Client/GetCatalogItems",{ CatalogVersion:CONFIG.playfabCatalog });
+      (c.Catalog||[]).forEach(i=>storeCat[i.ItemId]=i);
+    }catch{}
+    await loadWallet();
+    if(!storeItems.length){ msg.textContent="No items in this store yet."; $("storePager").classList.add("hidden"); return; }
+    msg.textContent="";
+    storePage=0; renderStore();
+    storeLoaded=true;
+  }catch(e){ msg.textContent="Couldn't load the store: "+(e.message||"error"); }
+}
+const COOLDOWN_DAYS=30, COOLDOWN_MS=COOLDOWN_DAYS*24*60*60*1000;
+let ownedMap={};   // itemId -> newest purchase timestamp
+function cooldownLeft(itemId){
+  const t=ownedMap[itemId]; if(!t) return 0;
+  const left=COOLDOWN_MS-(Date.now()-t);
+  return left>0?left:0;
+}
+function cooldownLabel(ms){
+  const d=Math.ceil(ms/86400000);
+  if(d>1) return d+"d";
+  const h=Math.ceil(ms/3600000);
+  return h>1? h+"h" : "soon";
+}
+async function loadWallet(){
+  try{
+    const inv=await pfAuth("/Client/GetUserInventory",{});
+    const vc=inv.VirtualCurrency||{};
+    const copper=toCopper(vc);
+    const extra=Object.entries(vc).filter(([c])=>!["GC","SC","CC","RM"].includes(c) && Number(vc[c])>0)
+                  .map(([c,v])=>`${v} ${c}`);
+    $("walletBar").innerHTML = [fmtCoins(copper), ...extra].join("  •  ");
+    ownedMap={};
+    (inv.Inventory||[]).forEach(i=>{
+      if(!i.ItemId) return;
+      const t=i.PurchaseDate? Date.parse(i.PurchaseDate) : 0;
+      if(!ownedMap[i.ItemId] || t>ownedMap[i.ItemId]) ownedMap[i.ItemId]=t;
+    });
+  }catch{}
+}
+async function buyItem(itemId){
+  if(maintLock()){ $("storeMsg").textContent="The store is closed during maintenance."; return; }
+  if(!loggedIn()){ openAccount(); return; }
+  const msg=$("storeMsg");
+  try{
+    msg.textContent="Purchasing…";
+    const data=await pfAuth("/Client/ExecuteCloudScript",{
+      FunctionName: CONFIG.buyFunction,
+      FunctionParameter: { itemId:itemId, catalogVersion:CONFIG.playfabCatalog, storeId:CONFIG.playfabStoreId },
+      GeneratePlayStreamEvent: true
+    });
+    const err=data.Error;
+    if(err){
+      // PlayFab reports a thrown CloudScript error as "JavascriptException" —
+      // the useful text is in the message/stack, so show that instead.
+      let detail=err.Message||err.Error||"CloudScript error";
+      if(err.StackTrace){ const m=String(err.StackTrace).split("\n")[0]; if(m) detail=m; }
+      if(String(err.Error||"").indexOf("RequestCountExceeded")>=0)
+        detail="script hit PlayFab's request limit - redeploy it.";
+      if(/No function named/i.test(detail) || String(err.Error||"").indexOf("FunctionNotFound")>=0)
+        detail="purchase script not deployed (Cloud Script > Revisions > Deploy).";
+      throw new Error(detail);
+    }
+    const r=data.FunctionResult||{};
+    if(r.success){ msg.textContent="Purchased ✔"; beep("login"); }
+    else if(r.reason==="maintenance"){ msg.textContent="The store is closed during maintenance."; beep("error"); }
+    else if(r.reason==="cooldown"){ msg.textContent="You already own this — you can buy it again in "+(r.daysRemaining||0)+" day(s)."; beep("error"); }
+    else if(r.reason==="insufficient"){ msg.innerHTML="Not enough coins. You have "+fmtCoins(r.haveCopper||0)+", price is "+fmtCoins(r.priceCopper||0)+"."; beep("error"); }
+    else { msg.textContent="Purchase failed."; beep("error"); }
+    await loadWallet(); renderStore();
+  }catch(e){ msg.textContent="Purchase failed: "+(e.message||"error"); beep("error"); await loadWallet(); renderStore(); }
+}
+
+function authTab(which){ const login=which==="login";
+  $("formLogin").classList.toggle("hidden", !login); $("formRegister").classList.toggle("hidden", login);
+  $("tabLogin").className="flex-1 py-2 rounded-lg text-xs uppercase tracking-widest "+(login?"bg-white/10":"border border-white/10");
+  $("tabRegister").className="flex-1 py-2 rounded-lg text-xs uppercase tracking-widest "+(!login?"bg-white/10":"border border-white/10");
+  loginError(""); }
+function loginError(msg){ const el=$("loginError"); if(!msg){ el.classList.add("hidden"); return; } el.textContent=msg; el.classList.remove("hidden"); }
+function setAuthBusy(s){ $("loginBtn").disabled=s; $("registerBtn").disabled=s; }
+
+async function doLogin(){
+  if(!CONFIG.playfabTitleId){ loginError("Set your PlayFab Title ID in CONFIG."); beep("error"); return; }
+  const id=$("loginId").value.trim(), pw=$("loginPass").value;
+  if(!id||!pw){ loginError("Enter your email/username and password."); beep("error"); return; }
+  setAuthBusy(true); loginError("");
+  try{ saved.account=await pfLogin(id,pw); persist(saved); $("loginPass").value=""; renderAccount(); beep("login"); loadProfile(); refreshLive(); setTimeout(closeAccount,600); }
+  catch(e){ loginError(friendlyAuthError(e)); beep("error"); } finally{ setAuthBusy(false); }
+}
+async function doRegister(){
+  if(!CONFIG.playfabTitleId){ loginError("Set your PlayFab Title ID in CONFIG."); beep("error"); return; }
+  const u=$("regUser").value.trim(), em=$("regEmail").value.trim(), pw=$("regPass").value;
+  if(u.length<3){ loginError("Username must be at least 3 characters."); beep("error"); return; }
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){ loginError("Enter a valid email address."); beep("error"); return; }
+  if(pw.length<6){ loginError("Password must be at least 6 characters."); beep("error"); return; }
+  setAuthBusy(true); loginError("");
+  try{ saved.account=await pfRegister(u,em,pw); persist(saved); $("regPass").value=""; renderAccount(); beep("login"); loadProfile(); refreshLive(); setTimeout(closeAccount,600); }
+  catch(e){ loginError(friendlyAuthError(e)); beep("error"); } finally{ setAuthBusy(false); }
+}
+function doLogout(){ saved.account=null; persist(saved); storeLoaded=false; isAdmin=false; maintenance={on:false}; applyMaintenance(); if($("storeGrid")) $("storeGrid").innerHTML=""; renderAccount(); beep(); }
+
+
+async function loadProfile(){
+  try{
+    const d=await pfAuth("/Client/GetAccountInfo",{});
+    const a=(d&&d.AccountInfo)||{}, t=a.TitleInfo||{}, pv=a.PrivateInfo||{};
+    saved.account.display=t.DisplayName||a.Username||"";
+    saved.account.avatar=t.AvatarUrl||"";
+    saved.account.email=pv.Email||"";
+    persist(saved); renderAccount();
+  }catch{}
+}
+async function saveProfile(){
+  const n=$("pf_name").value.trim(), e=$("pf_email").value.trim(), av=$("pf_avatar").value.trim();
+  $("pfMsg").textContent="Saving...";
+  try{
+    if(n && n!==saved.account.display) await pfAuth("/Client/UpdateUserTitleDisplayName",{DisplayName:n});
+    if(av!==(saved.account.avatar||"")) await pfAuth("/Client/UpdateAvatarUrl",{ImageUrl:av});
+    if(e && e!==(saved.account.email||"")) await pfAuth("/Client/AddOrUpdateContactEmail",{EmailAddress:e});
+    if(n) saved.account.display=n;
+    saved.account.avatar=av; if(e) saved.account.email=e;
+    persist(saved); renderAccount();
+    $("pfMsg").textContent="Profile saved."; beep("login");
+  }catch(err){ $("pfMsg").textContent="Save failed: "+(err.message||"error"); beep("error"); }
+}
+async function resetPassword(){
+  const e=$("pf_email").value.trim()||saved.account.email||"";
+  if(!e){ $("pfMsg").textContent="Enter your email first."; return; }
+  $("pfMsg").textContent="Sending...";
+  try{
+    const r=await fetch(pfBase()+"/Client/SendAccountRecoveryEmail",{method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({TitleId:CONFIG.playfabTitleId,Email:e})});
+    const d=await r.json();
+    $("pfMsg").textContent=(d&&d.code===200)?("Password reset email sent to "+e)
+      :("Couldn't send: "+((d&&d.errorMessage)||"error"));
+  }catch{ $("pfMsg").textContent="Couldn't send reset email."; }
+}
+function acctLabel(){ return (saved.account&&(saved.account.display||saved.account.name))||""; }
+function renderAccount(){
+  const b=$("accountBtn");
+  if(saved.account){
+    $("loggedIn").classList.remove("hidden"); $("loggedOut").classList.add("hidden");
+    $("accountName").innerText=acctLabel();
+    const av=$("pfAvatar"); if(av){ if(saved.account.avatar){ av.src=saved.account.avatar; av.style.visibility="visible"; } else av.style.visibility="hidden"; }
+    if($("pf_name")) $("pf_name").value=saved.account.display||"";
+    if($("pf_email")) $("pf_email").value=saved.account.email||"";
+    if($("pf_avatar")) $("pf_avatar").value=saved.account.avatar||"";
+    $("accountId").innerText=saved.account.playFabId?("PlayFab ID: "+saved.account.playFabId):"";
+    const ad=$("adminDiag"); if(ad){ ad.textContent=adminDiag; ad.className="text-xs mt-2 "+(isAdmin?"text-amber-400":"text-gray-500"); }
+    b.textContent="◆ "+acctLabel();
+    $("acctBadge").innerHTML="◆ "+escapeHtml(acctLabel());
+  } else {
+    $("loggedIn").classList.add("hidden"); $("loggedOut").classList.remove("hidden");
+    b.textContent="Sign in"; $("acctBadge").innerText="Not signed in";
+  }
+  gateButtons();
+}
+
+// ---- admin panel + live content (PlayFab Title Data) --------------------
+let isAdmin=false, liveNews=null, maintenance={on:false}, adminDiag="";
+
+async function refreshLive(){
+  if(!loggedIn()){ isAdmin=false; $("adminBtn").classList.add("hidden"); applyMaintenance(); return; }
+  try{
+    const td=await pfAuth("/Client/GetTitleData",{ Keys:["news","maintenance"] });
+    const d=(td&&td.Data)||{};
+    try{ liveNews = d.news ? JSON.parse(d.news) : null; }catch{ liveNews=null; }
+    try{ maintenance = d.maintenance ? JSON.parse(d.maintenance) : {on:false}; }catch{ maintenance={on:false}; }
+  }catch{}
+  try{
+    const r=await pfAuth("/Client/ExecuteCloudScript",{ FunctionName:"amIAdmin", FunctionParameter:{} });
+    if(r && r.Error){
+      isAdmin=false;
+      adminDiag="Admin check failed: "+(r.Error.Message||r.Error.Error||"CloudScript error")+
+        (/No function named/i.test(JSON.stringify(r.Error))?" - deploy the CloudScript.":"");
+    } else {
+      isAdmin = !!(r && r.FunctionResult && r.FunctionResult.isAdmin);
+      adminDiag = isAdmin ? "Admin access: YES" :
+        "Admin access: no - add an 'admin' key under Read only data, then re-login.";
+    }
+  }catch(e){ isAdmin=false; adminDiag="Admin check error: "+(e.message||"failed"); }
+  $("adminBtn").classList.toggle("hidden", !isAdmin);
+  renderAccount(); renderNews(); applyMaintenance();
+}
+
+function renderNews(){
+  const wrap=$("newsList");
+  if(!wrap || !liveNews || !liveNews.length) return;   // no live news -> keep built-in cards
+  wrap.innerHTML = liveNews.map(n=>`<div class="cd p-6">
+    <div class="text-red-400 text-xs uppercase mb-2">${escapeHtml(n.tag||"News")}</div>
+    <div class="font-bold text-xl">${escapeHtml(n.title||"")}</div>
+    <p class="text-gray-400 mt-2 text-sm whitespace-pre-line">${escapeHtml(n.body||"")}</p>
+  </div>`).join("");
+}
+
+function maintLock(){ return !!(maintenance&&maintenance.on) && !isAdmin; }
+function applyMaintenance(){
+  const on=!!(maintenance&&maintenance.on), b=$("maintBanner");
+  if(b){
+    if(on){
+      b.classList.remove("hidden");
+      b.className="mb-3 max-w-3xl px-4 py-2 rounded-lg text-xs "+(isAdmin
+        ?"bg-amber-500/20 border border-amber-500/40 text-amber-300"
+        :"bg-red-500/15 border border-red-500/40 text-red-300");
+      b.innerHTML = isAdmin
+        ? "MAINTENANCE ON - Play, Install and Store are locked for players. Admin-only bar."
+        : "<b>"+escapeHtml(maintenance.title||"Maintenance")+"</b> - "+escapeHtml(maintenance.message||"")+
+          " Play, Install and Store are locked. News is still readable.";
+    } else b.classList.add("hidden");
+  }
+  const sl=$("storeLock");
+  if(sl){ sl.classList.toggle("hidden", !maintLock());
+    if(maintLock()) sl.textContent="The store is closed during maintenance."; }
+  gateButtons();
+  if(storeLoaded) renderStore();
+}
+
+function openAdmin(){
+  if(!isAdmin) return;
+  beep();
+  $("mt_on").checked=!!maintenance.on;
+  $("mt_title").value=maintenance.title||"";
+  $("mt_msg").value=maintenance.message||"";
+  const ln=$("liveNow");
+  if(ln) ln.innerHTML = (liveNews&&liveNews.length)
+    ? "Live now ("+liveNews.length+"): "+liveNews.map(n=>escapeHtml(n.title||"untitled")).join(" | ")
+    : "Nothing published yet.";
+  renderAdminNews(liveNews||[]);
+  $("adminMsg").textContent="";
+  $("adminModal").classList.remove("hidden");
+}
+function closeAdmin(){ $("adminModal").classList.add("hidden"); }
+function newsRowHtml(n){
+  n=n||{};
+  return `<div class="newsRow border border-white/10 rounded-lg p-3 mb-3">
+    <div class="flex gap-2 items-start">
+      <input class="n-tag field" style="margin:0" placeholder="Tag (Update / System)" value="${escapeHtml(n.tag||"")}">
+      <button onclick="this.closest('.newsRow').remove()" title="Remove"
+        class="px-3 py-2 border border-white/10 rounded-lg text-gray-400 hover:bg-white/10">&times;</button>
+    </div>
+    <input class="n-title field" placeholder="Headline" value="${escapeHtml(n.title||"")}">
+    <textarea class="n-body field" rows="2" style="resize:vertical" placeholder="Body text">${escapeHtml(n.body||"")}</textarea>
+  </div>`;
+}
+function renderAdminNews(list){
+  const rows=(list&&list.length)?list:[{}];
+  $("adminNews").innerHTML=rows.map(newsRowHtml).join("");
+}
+function addNewsRow(){ $("adminNews").insertAdjacentHTML("beforeend", newsRowHtml({})); }
+function collectNews(){
+  return Array.from(document.querySelectorAll("#adminNews .newsRow")).map(r=>({
+    tag: r.querySelector(".n-tag").value.trim(),
+    title: r.querySelector(".n-title").value.trim(),
+    body: r.querySelector(".n-body").value.trim()
+  })).filter(n=>n.title||n.body);
+}
+async function saveAdmin(){
+  const news=collectNews();
+  const maint={ on:$("mt_on").checked, title:$("mt_title").value.trim(), message:$("mt_msg").value.trim() };
+  $("adminMsg").textContent="Publishing…";
+  try{
+    const r=await pfAuth("/Client/ExecuteCloudScript",{
+      FunctionName:"adminSave",
+      FunctionParameter:{ news:news, maintenance:maint },
+      GeneratePlayStreamEvent:true
+    });
+    if(r.Error) throw new Error(r.Error.Message||r.Error.Error||"CloudScript error");
+    const fr=r.FunctionResult||{};
+    if(!fr.success) throw new Error(fr.reason||"not authorized");
+    liveNews=news; maintenance=maint;
+    renderNews(); applyMaintenance();
+    $("adminMsg").textContent="Published — live for all players.";
+    beep("login");
+  }catch(e){ $("adminMsg").textContent="Publish failed: "+(e.message||"error"); beep("error"); }
+}
+
+// ---- formatting ---------------------------------------------------------
+function fmtBytes(b){ if(b>=1e9)return(b/1e9).toFixed(2)+" GB"; if(b>=1e6)return(b/1e6).toFixed(2)+" MB"; if(b>=1e3)return(b/1e3).toFixed(1)+" KB"; return Math.round(b)+" B"; }
+function fmtSpeed(bps){ return fmtBytes(bps)+"/s"; }
+function fmtTime(s){ if(!isFinite(s)||s<0)return"--"; s=Math.round(s); const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),x=s%60; if(h)return`${h}h ${m}m`; if(m)return`${m}m ${x}s`; return`${x}s`; }
+
+// ---- state machine ------------------------------------------------------
+function applyState(){
+  const installed=!!saved.installedVersion;
+  const updateAvailable=installed && latestVersion && String(latestVersion)!==String(saved.installedVersion);
+  const primary=!installed?"install":(updateAvailable?"update":"play");
+  ["installBtn","playBtn","updateBtn"].forEach(id=>$(id).classList.add("hidden"));
+  $({install:"installBtn",update:"updateBtn",play:"playBtn"}[primary]).classList.remove("hidden");
+  if(primary!==lastPrimary && !busy){
+    if(primary==="install") $("modeText").innerText="Ready to install";
+    else if(primary==="play") $("modeText").innerText="Ready to play";
+    else if(primary==="update"){ $("modeText").innerText="Update available"; $("stats").innerText=`Version ${latestVersion} is ready — click Update.`; }
+  }
+  lastPrimary=primary;
+  const iv=saved.installedVersion?(saved.installedVersion==="installed"?"installed":"v"+saved.installedVersion):"not installed";
+  $("verInfo").innerText="Installed: "+iv+(latestVersion?"  •  Latest: v"+latestVersion:"");
+  gateButtons();
+}
+function setBusy(state){ busy=state; gateButtons(); }
+function gateButtons(){
+  if(busy){ ["installBtn","playBtn","updateBtn","repairBtn"].forEach(id=>$(id).disabled=true); $("cancelBtn").disabled=false; return; }
+  $("cancelBtn").disabled=true;
+  const authed=loggedIn(), lock=maintLock(), canGet=serverOnline&&authed&&!lock;
+  $("installBtn").disabled=!canGet; $("updateBtn").disabled=!canGet;
+  $("repairBtn").disabled=!serverOnline||lock; $("playBtn").disabled=!authed||lock;
+  const hint=$("authHint"); if(hint) hint.classList.toggle("hidden", authed);
+}
+function updateProgress(received,total,speed){
+  const bar=$("bar");
+  if(total>0){ bar.classList.remove("indeterminate"); const pct=(received/total)*100; bar.style.width=pct.toFixed(2)+"%"; $("percent").innerText=pct.toFixed(1)+"%";
+    const rem=speed>0?(total-received)/speed:Infinity; $("stats").innerText=`${fmtBytes(received)} / ${fmtBytes(total)}  •  ${fmtSpeed(speed)}  •  ETA ${fmtTime(rem)}`;
+  } else { bar.classList.add("indeterminate"); bar.style.width="100%"; $("percent").innerText=fmtBytes(received); $("stats").innerText=`${fmtBytes(received)} downloaded  •  ${fmtSpeed(speed)}  •  size unknown`; }
+}
+
+// ---- checksum + manifest ------------------------------------------------
+async function sha256Hex(buf){ const d=await crypto.subtle.digest("SHA-256",buf); return [...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,"0")).join(""); }
+async function getManifest(){
+  let hash=(CONFIG.expectedHash||"").trim().toLowerCase(); let size=0,file=CONFIG.saveName,version=null,launcherVersion=null;
+  if(CONFIG.manifestUrl){ try{ const r=await fetch(CONFIG.manifestUrl,{cache:"no-store"}); if(r.ok){ const m=await r.json();
+        if(m.sha256)hash=String(m.sha256).trim().toLowerCase(); if(m.size)size=Number(m.size); if(m.file)file=m.file; if(m.version)version=String(m.version); if(m.launcherVersion)launcherVersion=String(m.launcherVersion); } }catch{} }
+  return {hash,size,file,version,launcherVersion};
+}
+async function refreshManifest(){
+  const m=await getManifest(); latestVersion=m.version;
+  if(m.launcherVersion && String(m.launcherVersion)!==String(LAUNCHER_VERSION)){ selfUpdateLauncher(m.launcherVersion); return; }
+  applyState(); maybeAutoUpdate();
+}
+// ---- launcher self-update (maintenance screen, real download) -----------
+function showUpdateFace(status, manual){
+  if(status!==undefined) $("updateFaceSub").textContent = status;
+  $("updateRefreshBtn").classList.toggle("hidden", !manual);
+  $("updateFace").classList.remove("hidden");
+}
+function ufProgress(received,total,speed){
+  const bar=$("ufBar");
+  if(total>0){ bar.classList.remove("indeterminate"); const pct=(received/total)*100;
+    bar.style.width=pct.toFixed(1)+"%"; $("ufPct").textContent=pct.toFixed(1)+"%";
+    const rem=speed>0?(total-received)/speed:Infinity;
+    $("ufStats").textContent=`${fmtBytes(received)} / ${fmtBytes(total)}  •  ${fmtSpeed(speed)}  •  ETA ${fmtTime(rem)}`;
+  } else { bar.classList.add("indeterminate"); bar.style.width="100%";
+    $("ufPct").textContent=fmtBytes(received);
+    $("ufStats").textContent=`${fmtBytes(received)} downloaded  •  ${fmtSpeed(speed)}  •  size unknown`; }
+}
+function guardedReload(target){
+  let g={}; try{ g=JSON.parse(sessionStorage.getItem("gnd_lu")||"{}"); }catch{}
+  if(g.target===target && g.tried){ showUpdateFace("Update ready — tap refresh to apply.", true); return; }
+  try{ sessionStorage.setItem("gnd_lu", JSON.stringify({target, tried:true})); }catch{}
+  setTimeout(()=>location.reload(), 900);
+}
+async function downloadLauncherUpdate(url, target){
+  $("updateFaceSub").textContent="Downloading v"+target+"…";
+  const res=await fetch(url,{cache:"no-store"}); if(!res.ok) throw new Error("HTTP "+res.status);
+  const total=Number(res.headers.get("Content-Length"))||0; const reader=res.body.getReader();
+  let received=0; const start=performance.now();
+  while(true){ const {done,value}=await reader.read(); if(done) break; received+=value.length;
+    ufProgress(received,total,received/((performance.now()-start)/1000)); }
+  ufProgress(received, total||received, received/((performance.now()-start)/1000));
+  // Desktop wrapper installs the downloaded update and restarts:
+  if(window.__GND_SELF_UPDATE__){ try{ window.__GND_SELF_UPDATE__({version:target,url,size:received});
+      $("updateFaceSub").textContent="Installing v"+target+" — restarting…"; return; }catch(e){} }
+  // Browser can't replace its own file: load the newest hosted build.
+  $("updateFaceSub").textContent="Finalizing v"+target+"…"; guardedReload(target);
+}
+let selfUpdating=false;
+function selfUpdateLauncher(target){
+  if(selfUpdating) return; selfUpdating=true;
+  showUpdateFace("Preparing update…", false);
+  if(CONFIG.launcherUrl){ downloadLauncherUpdate(CONFIG.launcherUrl, target).catch(()=>guardedReload(target)); return; }
+  guardedReload(target);   // no update-file URL set -> silent reload to newest build
+}
+function maybeAutoUpdate(){
+  if(!saved.autoUpdate || busy || !loggedIn() || !serverOnline) return;
+  const updateAvailable = saved.installedVersion && latestVersion && String(latestVersion)!==String(saved.installedVersion);
+  if(updateAvailable) startDownload("Auto-updating game files");
+}
+function pickFile(){ return new Promise(res=>{ const i=document.createElement("input"); i.type="file"; i.onchange=()=>res(i.files[0]||null); i.click(); }); }
+
+// ---- download / install / update ---------------------------------------
+// Hand off to the browser's own downloader (works even when CORS blocks fetch).
+async function nativeDownload(note){
+  const a=document.createElement("a"); a.href=CONFIG.gameUrl; a.download=CONFIG.saveName;
+  document.body.appendChild(a); a.click(); a.remove();
+  $("bar").classList.remove("indeterminate"); $("bar").style.width="100%"; $("percent").innerText="100%";
+  $("modeText").innerText="Download started"; $("stats").innerText=note||"Downloading via your browser — check its downloads bar.";
+  const m=await getManifest(); saved.installedVersion=m.version||"installed"; latestVersion=m.version||latestVersion; persist(saved);
+}
+function runUpdate(){ beep(); startDownload("Updating game files"); }
+// ---- install folder (remembered between sessions) -----------------------
+let installDir=null;
+function idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open("gnd_fs",1);
+  r.onupgradeneeded=()=>r.result.createObjectStore("kv"); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+async function idbSet(k,v){ const db=await idb(); return new Promise((res,rej)=>{ const t=db.transaction("kv","readwrite"); t.objectStore("kv").put(v,k); t.oncomplete=()=>res(); t.onerror=()=>rej(t.error); }); }
+async function idbGet(k){ const db=await idb(); return new Promise((res,rej)=>{ const t=db.transaction("kv","readonly"); const q=t.objectStore("kv").get(k); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); }); }
+async function okPerm(h){ try{ if(await h.queryPermission({mode:"readwrite"})==="granted") return true;
+  return await h.requestPermission({mode:"readwrite"})==="granted"; }catch{ return false; } }
+async function getInstallDir(){
+  if(installDir && await okPerm(installDir)) return installDir;
+  try{ const s=await idbGet("installDir"); if(s && await okPerm(s)){ installDir=s; return installDir; } }catch{}
+  if(!window.showDirectoryPicker) return null;
+  installDir=await window.showDirectoryPicker({mode:"readwrite"});
+  try{ await idbSet("installDir", installDir); }catch{}
+  return installDir;
+}
+
+// ---- download with real size / speed / ETA ------------------------------
+async function downloadBytes(url){
+  controller=new AbortController();
+  const res=await fetch(url,{signal:controller.signal,cache:"no-store"});
+  if(!res.ok) throw new Error("Server responded "+res.status);
+  const total=Number(res.headers.get("Content-Length"))||0;
+  const reader=res.body.getReader(); const chunks=[]; let received=0; const start=performance.now();
+  while(true){
+    const {done,value}=await reader.read(); if(done) break;
+    chunks.push(value); received+=value.length;
+    updateProgress(received,total,received/((performance.now()-start)/1000));
+  }
+  const out=new Uint8Array(received); let off=0;
+  for(const c of chunks){ out.set(c,off); off+=c.length; }
+  return out;
+}
+function unzipData(bytes){ return new Promise((res,rej)=>{ fflate.unzip(bytes,(e,f)=>e?rej(e):res(f)); }); }
+async function writeFiles(dir, files){
+  const names=Object.keys(files).filter(n=>!n.endsWith("/"));
+  let i=0;
+  for(const name of names){
+    i++;
+    const parts=name.split("/"); const fname=parts.pop(); let d=dir;
+    for(const p of parts){ if(p) d=await d.getDirectoryHandle(p,{create:true}); }
+    const fh=await d.getFileHandle(fname,{create:true});
+    const w=await fh.createWritable(); await w.write(files[name]); await w.close();
+    if(i%4===0 || i===names.length){
+      const pct=(i/names.length)*100;
+      $("bar").classList.remove("indeterminate"); $("bar").style.width=pct.toFixed(1)+"%"; $("percent").innerText=pct.toFixed(0)+"%";
+      $("stats").innerText=`Extracting ${i} / ${names.length} files…`;
+      await new Promise(r=>setTimeout(r,0));
+    }
+  }
+  return names.length;
+}
+
+async function startDownload(label="Downloading game files"){
+  if(busy) return;
+  if(maintLock()){ $("modeText").innerText="Maintenance"; $("stats").innerText="Installing is locked during maintenance."; return; }
+  if(!loggedIn()){ beep("error"); openAccount(); loginError("Sign in to install."); return; }
+  beep();
+  setBusy(true); $("modeText").innerText=label; $("stats").innerText="Connecting…"; $("bar").style.width="0%"; $("percent").innerText="0%";
+
+  // Auto-install needs a folder handle (Chrome/Edge desktop) + the unzip lib.
+  if(!window.showDirectoryPicker || typeof fflate==="undefined"){
+    await nativeDownload("Can't auto-install here - downloading the .zip; unzip it yourself.");
+    setBusy(false); applyState(); return;
+  }
+  try{
+    $("stats").innerText="Choose where to install the game…";
+    const dir=await getInstallDir();
+    if(!dir){ await nativeDownload("No folder chosen — downloading the .zip instead."); setBusy(false); applyState(); return; }
+
+    const bytes=await downloadBytes(CONFIG.gameUrl);
+    $("modeText").innerText="Extracting"; $("stats").innerText="Unpacking game files…";
+    const files=await unzipData(bytes);
+    const count=await writeFiles(dir, files);
+
+    const m=await getManifest();
+    saved.installedVersion=m.version||"installed"; latestVersion=m.version||latestVersion; persist(saved);
+    $("bar").style.width="100%"; $("percent").innerText="100%";
+    $("modeText").innerText="Installed";
+    $("stats").innerText=`Installed ${count} files (${fmtBytes(bytes.length)}). Ready to play.`;
+  }catch(err){
+    if(err && err.name==="AbortError"){ $("modeText").innerText="Cancelled"; $("stats").innerText="Download stopped."; }
+    else if(err && err.name==="NotAllowedError"){ $("modeText").innerText="Permission needed"; $("stats").innerText="Folder access denied — click Install and allow it."; }
+    else if(err instanceof TypeError){ await nativeDownload("Host blocks direct download - using browser download; unzip manually."); }
+    else { $("modeText").innerText="Install failed"; $("stats").innerText=(err&&err.message)||"Unknown error"; }
+  } finally{ setBusy(false); controller=null; applyState(); }
+}
+function cancelDownload(){ if(controller) controller.abort(); }
+
+// ---- LAUNCH with single sign-on handoff ---------------------------------
+function launchGame(){
+  if(maintLock()){ $("modeText").innerText="Maintenance"; $("stats").innerText="Play is locked during maintenance."; return; }
+  if(!loggedIn()){ beep("error"); openAccount(); loginError("Sign in to play."); return; }
+  beep("play");
+  const payload = { titleId:CONFIG.playfabTitleId, playFabId:saved.account.playFabId, sessionTicket:saved.account.ticket, exe:CONFIG.gameExe, hideLauncher:!!saved.hideOnPlay };
+  if(window.__GND_LAUNCH__){
+    try{ window.__GND_LAUNCH__(payload); $("modeText").innerText="Launching..."; $("stats").innerText="Passing your session to the game — no second login.";
+      if(saved.hideOnPlay && window.__GND_HIDE__) window.__GND_HIDE__(); }catch(e){ $("stats").innerText="Launch failed: "+e.message; }
+  } else { $("modeText").innerText="Launch needs the desktop app"; $("stats").innerText="A browser can't start the game - use the desktop build."; }
+}
+
+// ---- repair: scan install folder, delete everything, reinstall ----------
+async function wipeDir(dir){
+  const names=[];
+  for await (const [name] of dir.entries()) names.push(name);
+  let i=0;
+  for(const n of names){
+    i++;
+    try{ await dir.removeEntry(n,{recursive:true}); }catch{}
+    $("bar").style.width=((i/names.length)*100).toFixed(0)+"%";
+    $("percent").innerText=((i/names.length)*100).toFixed(0)+"%";
+    $("stats").innerText=`Deleting old files… ${i} / ${names.length}`;
+    await new Promise(r=>setTimeout(r,0));
+  }
+  return names.length;
+}
+async function repairFiles(){
+  if(busy) return;
+  if(maintLock()){ $("modeText").innerText="Maintenance"; $("stats").innerText="Repair is locked during maintenance."; return; }
+  beep();
+  if(!window.showDirectoryPicker){
+    $("modeText").innerText="Repair needs a desktop browser";
+    $("stats").innerText="Use Chrome or Edge on desktop.";
+    return;
+  }
+  setBusy(true);
+  try{
+    $("modeText").innerText="Repair — scanning install folder";
+    $("stats").innerText="Choose your game folder…";
+    const dir=await getInstallDir();
+    if(!dir){ $("modeText").innerText="Repair cancelled"; $("stats").innerText="No folder selected."; setBusy(false); applyState(); return; }
+    $("modeText").innerText="Repair — removing old files";
+    const removed=await wipeDir(dir);
+    saved.installedVersion=null; persist(saved);
+    $("stats").innerText=`Removed ${removed} item(s) — downloading a fresh copy…`;
+    setBusy(false);
+    await startDownload("Repairing — reinstalling game files");
+  }catch(e){
+    if(e && e.name==="AbortError"){ $("modeText").innerText="Repair cancelled"; $("stats").innerText=""; }
+    else { $("modeText").innerText="Repair failed"; $("stats").innerText=(e&&e.message)||"Error"; }
+    setBusy(false); applyState();
+  }
+}
+
+// ---- connectivity -------------------------------------------------------
+async function checkStatus(){
+  if(checking) return; checking=true; const el=$("status");
+  el.className="text-yellow-400 cursor-pointer select-none animate-pulse"; el.textContent="● Checking..."; gateButtons();
+  const ctrl=new AbortController(); const timer=setTimeout(()=>ctrl.abort(),8000);
+  try{ await fetch(CONFIG.gameUrl,{method:"HEAD",mode:"no-cors",cache:"no-store",signal:ctrl.signal});
+    serverOnline=true; el.className="text-green-400 cursor-pointer select-none"; el.textContent="● Online";
+  }catch{
+    // Some CDNs refuse HEAD — try a tiny ranged GET before declaring it down.
+    try{
+      await fetch(CONFIG.gameUrl,{method:"GET",mode:"no-cors",cache:"no-store",headers:{Range:"bytes=0-0"}});
+      serverOnline=true; el.className="text-green-400 cursor-pointer select-none"; el.textContent="● Online";
+    }catch{
+      if(navigator.onLine){
+        // We can't probe the host (CDN/CSP blocks it) but the device has internet.
+        // Don't lock the player out — the download itself has its own fallback.
+        serverOnline=true; el.className="text-amber-400 cursor-pointer select-none"; el.textContent="● Limited";
+      } else {
+        serverOnline=false; el.className="text-red-400 cursor-pointer select-none"; el.textContent="● Offline";
+      }
+    }
+  }
+  finally{ clearTimeout(timer); checking=false; gateButtons(); }
+}
+async function tick(){ await checkStatus(); if(serverOnline) await refreshManifest(); }
+function startRecheck(){ if(recheckTimer) clearInterval(recheckTimer); recheckTimer=setInterval(tick, Math.max(5,CONFIG.recheckSeconds)*1000); }
+
+function handleError(err){
+  $("bar").classList.remove("indeterminate");
+  if(err.name==="AbortError"){ $("modeText").innerText="Cancelled"; $("stats").innerText="Download stopped."; return; }
+  $("modeText").innerText="Download failed";
+  $("stats").innerText=(err instanceof TypeError)?"Couldn't reach the file - check host CORS and filename.":"Error: "+err.message;
+  checkStatus();
+}
+
+// ---- bug report (mailto — no external service) --------------------------
+function openBugReport(){
+  beep();
+  $("bugUser").value = saved.account ? saved.account.name : "";
+  $("bugVer").value  = saved.installedVersion ? ("v"+saved.installedVersion) : "not installed";
+  ["bugType","bugTitle","bugLoc","bugText"].forEach(id=>{ if($(id)) $(id).value=""; });
+  $("bugMsg").textContent=""; $("bugDiag").textContent=bugDiagnostics();
+  $("bugModal").classList.remove("hidden");
+}
+function closeBugReport(){ $("bugModal").classList.add("hidden"); }
+function bugDiagnostics(){
+  const acct = saved.account ? (saved.account.name+" / "+(saved.account.playFabId||"—")) : "not signed in";
+  const iv = saved.installedVersion || "not installed";
+  return ["Account: "+acct,
+          "Installed: "+iv+(latestVersion?"   Latest: v"+latestVersion:""),
+          "Title: "+CONFIG.playfabTitleId,
+          "When: "+new Date().toISOString(),
+          "Device: "+navigator.userAgent].join("\n");
+}
+function buildReport(){
+  return [
+    "Bug type: "+($("bugType").value||"—"),
+    "Title: "+($("bugTitle").value.trim()||"—"),
+    "Username: "+($("bugUser").value.trim()||"—"),
+    "Game version: "+($("bugVer").value.trim()||"—"),
+    "Location: "+($("bugLoc").value.trim()||"—"),
+    "\nWhat happened:\n"+($("bugText").value.trim()||"—"),
+    "\n---- diagnostics ----\n"+bugDiagnostics()
+  ].join("\n");
+}
+async function sendBugEmail(){
+  const title=$("bugTitle").value.trim(), type=$("bugType").value, desc=$("bugText").value.trim();
+  if(!type || !title || !desc){ $("bugMsg").textContent="Please fill in bug type, title, and what happened."; return; }
+  if(!CONFIG.emailjsTemplate){ $("bugMsg").textContent="Bug reporting isn't configured yet."; return; }
+  if(typeof emailjs==="undefined"){ $("bugMsg").textContent="Email service didn't load — use Copy."; return; }
+  $("bugMsg").textContent="Sending…";
+  try{
+    await emailjs.send(CONFIG.emailjsService, CONFIG.emailjsTemplate, {
+      subject: "GrigoriNightDragon bug report: "+title,
+      from_name: (saved.account?saved.account.name:"Player"),
+      to_email: CONFIG.supportEmail,
+      bug_type: type,
+      message: buildReport()
+    }, { publicKey: CONFIG.emailjsPublicKey });
+    $("bugMsg").textContent="Report sent — thank you."; beep("login");
+    setTimeout(closeBugReport, 900);
+  }catch(e){
+    $("bugMsg").textContent="Couldn't send ("+(e&&e.text?e.text:"error")+") — try Copy instead."; beep("error");
+  }
+}
+async function copyBugReport(){
+  const text="To: "+CONFIG.supportEmail+"\nSubject: GrigoriNightDragon bug report\n\n"+buildReport();
+  try{ await navigator.clipboard.writeText(text); $("bugMsg").textContent="Copied. Paste it into an email or Discord to "+CONFIG.supportEmail+"."; }
+  catch{ $("bugMsg").textContent="Send it to "+CONFIG.supportEmail+" (couldn't auto-copy)."; }
+}
+
+// ---- init / event wiring ------------------------------------------------
+try{ const g=JSON.parse(sessionStorage.getItem("gnd_lu")||"{}"); if(g.target && String(g.target)===String(LAUNCHER_VERSION)) sessionStorage.removeItem("gnd_lu"); }catch{}
+$("settingsBtn").addEventListener("click", openSettings);
+$("accountModal").addEventListener("click",(e)=>{ if(e.target===$("accountModal")) closeAccount(); });
+$("settingsModal").addEventListener("click",(e)=>{ if(e.target===$("settingsModal")) closeSettings(); });
+$("bugModal").addEventListener("click",(e)=>{ if(e.target===$("bugModal")) closeBugReport(); });
+$("adminModal").addEventListener("click",(e)=>{ if(e.target===$("adminModal")) closeAdmin(); });
+document.addEventListener("keydown",(e)=>{ if(e.key==="Escape"){ closeAccount(); closeSettings(); closeBugReport(); closeAdmin(); } });
+
+// global UI click sound: any button or nav tab plays a soft tick
+document.addEventListener("click",(e)=>{
+  const t=e.target.closest("button, [onclick]");
+  if(t && !t.disabled) click();
+}, true);
+// browser blocks audio until a gesture: start music on the first interaction
+function firstGesture(){ ac(); startMusic(); }
+window.addEventListener("pointerdown", firstGesture);
+window.addEventListener("keydown", firstGesture);
+initMusic();
+
+showTab("play");
+renderAccount(); applyState(); tick(); startRecheck(); refreshLive();
+</script>
+</body>
+</html>
