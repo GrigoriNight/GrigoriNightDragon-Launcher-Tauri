@@ -1091,6 +1091,25 @@ async function checkStatus(){
 async function tick(){ await checkStatus(); if(serverOnline) await refreshManifest(); }
 function startRecheck(){ if(recheckTimer) clearInterval(recheckTimer); recheckTimer=setInterval(tick, Math.max(5,CONFIG.recheckSeconds)*1000); }
 
+// ---- live content poll: pulls admin news + maintenance every second so an
+//      update posted by an admin shows up on other accounts without a reload.
+//      (Only the Title Data fetch here — the admin CloudScript check stays in
+//       refreshLive, which runs at login/boot.)
+let liveTimer=null, livePolling=false;
+async function pollLive(){
+  if(livePolling || !loggedIn()) return;
+  livePolling=true;
+  try{
+    const td=await pfAuth("/Client/GetTitleData",{ Keys:["news","maintenance"] });
+    const d=(td&&td.Data)||{};
+    try{ liveNews = d.news ? JSON.parse(d.news) : null; }catch{ liveNews=null; }
+    try{ maintenance = d.maintenance ? JSON.parse(d.maintenance) : {on:false}; }catch{ maintenance={on:false}; }
+    renderNews(); applyMaintenance();
+  }catch{}
+  finally{ livePolling=false; }
+}
+function startLivePoll(){ if(liveTimer) clearInterval(liveTimer); liveTimer=setInterval(pollLive, 1000); }
+
 function handleError(err){
   $("bar").classList.remove("indeterminate");
   if(err.name==="AbortError"){ $("modeText").innerText="Cancelled"; $("stats").innerText="Download stopped."; return; }
@@ -1176,7 +1195,7 @@ window.addEventListener("keydown", firstGesture);
 initMusic();
 
 showTab("play");
-renderAccount(); applyState(); tick(); startRecheck(); refreshLive();
+renderAccount(); applyState(); tick(); startRecheck(); refreshLive(); startLivePoll();
 </script>
 </body>
 </html>

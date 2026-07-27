@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GrigoriNightDragon Store</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  .stage { background: radial-gradient(circle at 70% 25%, #3a0d0d 0%, #140606 45%, #050505 100%), #000; }
+  .field { width:100%; margin-top:4px; padding:8px 12px; background:rgba(0,0,0,.6);
+           border:1px solid rgba(255,255,255,.1); border-radius:8px; color:#fff; outline:none; }
+  .field:focus { border-color:#ef4444; }
+  .mdl{position:fixed;inset:0;z-index:50;align-items:center;justify-content:center;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);padding:1rem}
+  .mdc{width:100%;background:#09090b;border:1px solid rgba(255,255,255,.1);border-radius:1rem;padding:1.5rem;box-shadow:0 25px 50px -12px rgba(0,0,0,.6)}
+  .xb{color:#9ca3af;font-size:1.875rem;line-height:1}.xb:hover{color:#fff}
+  .ob{border:1px solid rgba(255,255,255,.1);border-radius:.75rem}.ob:hover{background:rgba(255,255,255,.1)}
+  .ob:disabled{opacity:.4;cursor:not-allowed}
+  .cd{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:.75rem}
+  .ovf{overflow-y:auto;padding:2.5rem;background:#09090b}
+</style>
+</head>
+
+<body class="bg-black text-white overflow-hidden">
+<div class="h-screen flex flex-col stage">
+
+  <!-- TOP BAR -->
+  <div class="h-14 flex items-center gap-4 px-8 border-b border-white/10 bg-black/60">
+    <img src="GrigoriNightDragon-logo.png" onerror="this.style.display='none'" class="w-8 h-8 object-contain"/>
+    <div class="font-black uppercase tracking-widest">GrigoriNightDragon</div>
+    <button id="accountBtn" onclick="openAccount()" class="ml-auto px-4 py-1.5 border border-white/10 rounded-lg text-xs uppercase tracking-widest hover:bg-white/10">Sign in</button>
+  </div>
+
+  <!-- STORE -->
+  <div id="view-store" class="flex-1 ovf">
+    <div class="flex items-center justify-between mb-6 max-w-5xl">
+      <h1 class="text-3xl font-black uppercase tracking-widest">Store</h1>
+      <div class="flex items-center gap-3">
+        <div id="walletBar" class="text-xs text-gray-400"></div>
+        <button onclick="loadStore(true)" class="px-3 py-1.5 border border-white/10 rounded-lg text-xs uppercase tracking-widest hover:bg-white/10">Refresh</button>
+      </div>
+    </div>
+    <div id="storeLock" class="hidden mb-4 px-4 py-2 rounded-lg bg-red-500/15 border border-red-500/40 text-red-300 text-xs"></div>
+    <div id="storeMsg" class="text-sm text-gray-400 mb-4"></div>
+    <div id="storeGrid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-5xl items-stretch"></div>
+    <div id="storePager" class="hidden items-center justify-center gap-3 mt-6 max-w-5xl">
+      <button onclick="storeGo(-1)" id="pagePrev" class="px-4 py-2 border border-white/10 rounded-lg text-sm hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed">‹ Prev</button>
+      <div id="pageNums" class="flex items-center gap-1"></div>
+      <button onclick="storeGo(1)" id="pageNext" class="px-4 py-2 border border-white/10 rounded-lg text-sm hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed">Next ›</button>
+    </div>
+  </div>
+
+  <!-- BOTTOM STATUS BAR -->
+  <div class="h-10 flex items-center gap-6 px-8 border-t border-white/10 bg-black/70 text-xs">
+    <div id="acctBadge" class="text-gray-400 ml-auto">Not signed in</div>
+  </div>
+</div>
+
+<!-- ACCOUNT MODAL -->
+<div id="accountModal" class="hidden flex mdl">
+  <div class="mdc max-w-md">
+    <div class="flex justify-between items-center mb-5">
+      <h2 class="text-xl font-bold uppercase tracking-widest">Account</h2>
+      <button onclick="closeAccount()" class="xb">&times;</button>
+    </div>
+    <div id="loggedOut">
+      <div class="flex gap-2 mb-4">
+        <button id="tabLogin" onclick="authTab('login')" class="flex-1 py-2 rounded-lg text-xs uppercase tracking-widest bg-white/10">Log in</button>
+        <button id="tabRegister" onclick="authTab('register')" class="flex-1 py-2 rounded-lg text-xs uppercase tracking-widest border border-white/10">Register</button>
+      </div>
+      <div id="formLogin" class="space-y-3">
+        <input id="loginId" class="field" placeholder="Email or username"/>
+        <input id="loginPass" type="password" class="field" placeholder="Password"/>
+        <button id="loginBtn" onclick="doLogin()" class="w-full bg-gradient-to-r from-red-700 to-orange-500 py-2.5 rounded-lg font-bold uppercase tracking-widest hover:brightness-110 disabled:opacity-50">Log in</button>
+      </div>
+      <div id="formRegister" class="space-y-3 hidden">
+        <input id="regUser" class="field" placeholder="Username (3–20 characters)"/>
+        <input id="regEmail" type="email" class="field" placeholder="Email"/>
+        <input id="regPass" type="password" class="field" placeholder="Password (min 6 characters)"/>
+        <button id="registerBtn" onclick="doRegister()" class="w-full bg-gradient-to-r from-red-700 to-orange-500 py-2.5 rounded-lg font-bold uppercase tracking-widest hover:brightness-110 disabled:opacity-50">Create account</button>
+      </div>
+      <div id="loginError" class="text-red-400 text-xs mt-3 hidden"></div>
+    </div>
+    <div id="loggedIn" class="hidden">
+      <div class="flex items-center gap-3 mb-3">
+        <img id="pfAvatar" alt="" class="w-14 h-14 rounded-lg object-cover bg-white/10" onerror="this.style.visibility='hidden'">
+        <div class="min-w-0">
+          <div id="accountName" class="font-bold text-white truncate"></div>
+          <div id="accountId" class="text-xs text-gray-500 truncate"></div>
+        </div>
+      </div>
+      <label class="text-xs text-gray-400">Username</label>
+      <input id="pf_name" class="field" placeholder="Display name"/>
+      <label class="text-xs text-gray-400">Email</label>
+      <input id="pf_email" type="email" class="field" placeholder="you@example.com"/>
+      <label class="text-xs text-gray-400">Avatar image URL</label>
+      <input id="pf_avatar" class="field" placeholder="https://.../avatar.png"/>
+      <button onclick="saveProfile()" class="mt-3 w-full bg-gradient-to-r from-red-700 to-orange-500 py-2.5 rounded-lg font-bold uppercase tracking-widest text-sm hover:brightness-110">Save profile</button>
+      <button onclick="doLogout()" class="mt-2 w-full ob py-2.5 text-sm uppercase tracking-widest">Log out</button>
+      <div id="pfMsg" class="text-xs text-amber-400 mt-2"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+/* ===== DEVELOPER CONFIG ===== */
+const CONFIG = {
+  playfabTitleId: "17CBF3",        // GrigoriNightDragon PlayFab title
+  playfabCatalog: "Items_Items",   // legacy catalog version
+  playfabStoreId: "01",            // store ID
+  buyFunction: "buyItemCascade"    // CloudScript purchase handler
+};
+
+const PREF_DEFAULTS = { account:null };
+let _mem={};
+function loadPrefs(){ try{ return JSON.parse(localStorage.getItem("gnd_prefs"))||{}; }catch{ return _mem; } }
+function persist(o){ try{ localStorage.setItem("gnd_prefs", JSON.stringify(o)); }catch{ _mem=o; } }
+let saved = Object.assign({}, PREF_DEFAULTS, loadPrefs());
+
+function loggedIn(){ return !!saved.account; }
+function acctLabel(){ return (saved.account && (saved.account.display || saved.account.name)) || "Account"; }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g,c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
+
+// ---- sound (purchase feedback) -----------------------------------------
+let audioCtx=null;
+function ac(){ audioCtx=audioCtx||new(window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==="suspended")audioCtx.resume(); return audioCtx; }
+function beep(kind){
+  try{ const a=ac(),o=a.createOscillator(),g=a.createGain(),now=a.currentTime; o.type="sine";
+    o.frequency.value=kind==="login"?660:kind==="error"?200:430;
+    const peak=0.12, dur=0.16;
+    g.gain.setValueAtTime(0.0001,now); g.gain.exponentialRampToValueAtTime(peak,now+0.01); g.gain.exponentialRampToValueAtTime(0.0001,now+dur);
+    o.connect(g); g.connect(a.destination); o.start(now); o.stop(now+dur+0.01); }catch{}
+}
+
+// ---- account modal ------------------------------------------------------
+function openAccount(){ beep(); authTab("login"); loginError(""); renderAccount(); $("accountModal").classList.remove("hidden"); }
+function closeAccount(){ $("accountModal").classList.add("hidden"); }
+
+// ---- PlayFab auth -------------------------------------------------------
+function pfBase(){ return "https://"+CONFIG.playfabTitleId+".playfabapi.com"; }
+async function pfPost(path, body){
+  const r=await fetch(pfBase()+path,{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) });
+  let d={}; try{ d=await r.json(); }catch{}
+  if(!r.ok || d.code!==200) throw new Error(d.errorMessage || d.error || ("HTTP "+r.status));
+  return d.data;
+}
+async function pfLogin(identifier, password){
+  const isEmail=identifier.includes("@");
+  const path=isEmail?"/Client/LoginWithEmailAddress":"/Client/LoginWithPlayFab";
+  const body=isEmail?{TitleId:CONFIG.playfabTitleId,Email:identifier,Password:password}:{TitleId:CONFIG.playfabTitleId,Username:identifier,Password:password};
+  const d=await pfPost(path, body); return { name:identifier, playFabId:d.PlayFabId, ticket:d.SessionTicket };
+}
+async function pfRegister(username, email, password){
+  const d=await pfPost("/Client/RegisterPlayFabUser",{TitleId:CONFIG.playfabTitleId,Username:username,Email:email,Password:password,RequireBothUsernameAndEmail:true});
+  return { name:username, playFabId:d.PlayFabId, ticket:d.SessionTicket };
+}
+function friendlyAuthError(e){ return (e instanceof TypeError) ? "Couldn't reach PlayFab — check your connection." : (e.message||"Something went wrong."); }
+async function pfAuth(path, body){
+  if(!saved.account || !saved.account.ticket) throw new Error("Not signed in.");
+  const r=await fetch(pfBase()+path,{ method:"POST",
+    headers:{"Content-Type":"application/json","X-Authorization":saved.account.ticket},
+    body:JSON.stringify(body||{}) });
+  let d={}; try{ d=await r.json(); }catch{}
+  if(!r.ok || d.code!==200) throw new Error(d.errorMessage || d.error || ("HTTP "+r.status));
+  return d.data;
+}
+
+// ---- currency: 100 copper = 1 silver, 100 silver = 1 gold ---------------
+const CUR_NAMES={GC:"Gold",SC:"Silver",CC:"Copper"};
+const COPPER_PER_SILVER=100, SILVER_PER_GOLD=100;
+const COPPER_PER_GOLD=COPPER_PER_SILVER*SILVER_PER_GOLD;   // 10,000
+function toCopper(v){ return (Number(v.GC||0)*COPPER_PER_GOLD)+(Number(v.SC||0)*COPPER_PER_SILVER)+Number(v.CC||0); }
+function fmtCoins(copper){
+  copper=Math.max(0,Math.round(copper));
+  const g=Math.floor(copper/COPPER_PER_GOLD);
+  const s=Math.floor((copper%COPPER_PER_GOLD)/COPPER_PER_SILVER);
+  const c=copper%COPPER_PER_SILVER;
+  const parts=[];
+  if(g) parts.push(`<span class="text-yellow-400">${g}g</span>`);
+  if(s) parts.push(`<span class="text-gray-300">${s}s</span>`);
+  if(c||!parts.length) parts.push(`<span class="text-orange-400">${c}c</span>`);
+  return parts.join(" ");
+}
+function priceText(prices){
+  const p=prices||{};
+  const copper=toCopper(p);
+  const rm=Number(p.RM||0);
+  const out=[];
+  if(copper>0) out.push(fmtCoins(copper));
+  if(rm>0) out.push("$"+(rm/100).toFixed(2));
+  return out.length? out.join(" / ") : "Free";
+}
+
+// ---- store --------------------------------------------------------------
+let storeLoaded=false, storeItems=[], storeCat={}, storePage=0;
+const STORE_PER_PAGE=6;
+
+function storeCard(it){
+  const c=storeCat[it.ItemId]||{};
+  const name=escapeHtml(c.DisplayName||it.ItemId);
+  const desc=escapeHtml(c.Description||"");
+  const price=priceText(it.VirtualCurrencyPrices);
+  const img=c.ItemImageUrl||c.ItemImageUri||"";
+  const art = img
+    ? `<img src="${escapeHtml(img)}" alt="" loading="lazy" class="absolute inset-0 w-full h-full object-cover" onerror="this.remove()">`
+    : `<span class="text-3xl opacity-60">🐉</span>`;
+  const cd=cooldownLeft(it.ItemId);
+  const btn = maintLock()
+    ? `<button disabled class="px-4 py-2 rounded-lg bg-white/10 text-gray-500 text-xs font-bold uppercase tracking-widest cursor-not-allowed">Closed</button>`
+    : cd>0
+    ? `<button disabled title="Already owned — available again in ${cooldownLabel(cd)}"
+         class="px-4 py-2 rounded-lg bg-white/10 text-gray-400 text-xs font-bold uppercase tracking-widest cursor-not-allowed">Owned · ${cooldownLabel(cd)}</button>`
+    : `<button onclick="buyItem('${escapeHtml(it.ItemId)}')"
+         class="px-5 py-2 rounded-lg bg-gradient-to-r from-red-700 to-orange-500 text-xs font-bold uppercase tracking-widest hover:brightness-110">Buy</button>`;
+  return `<div class="cd p-5 flex flex-col h-full">
+    <div class="relative h-28 rounded-lg mb-4 overflow-hidden flex items-center justify-center bg-gradient-to-br from-red-900/40 to-orange-900/30">${art}</div>
+    <div class="font-bold leading-tight">${name}</div>
+    <div class="text-gray-400 text-sm mt-1 mb-3 flex-1">${desc}</div>
+    <div class="flex items-center justify-between gap-3 mt-auto">
+      <div class="text-sm">${price}</div>
+      ${btn}
+    </div>
+  </div>`;
+}
+function storePages(){ return Math.max(1, Math.ceil(storeItems.length/STORE_PER_PAGE)); }
+function renderStore(){
+  const grid=$("storeGrid"), pager=$("storePager");
+  const pages=storePages();
+  if(storePage>=pages) storePage=pages-1;
+  if(storePage<0) storePage=0;
+  const slice=storeItems.slice(storePage*STORE_PER_PAGE, (storePage+1)*STORE_PER_PAGE);
+  grid.innerHTML = slice.map(storeCard).join("");
+  if(pages<=1){ pager.classList.add("hidden"); pager.classList.remove("flex"); return; }
+  pager.classList.remove("hidden"); pager.classList.add("flex");
+  $("pagePrev").disabled = storePage===0;
+  $("pageNext").disabled = storePage===pages-1;
+  let nums="";
+  for(let i=0;i<pages;i++){
+    nums += `<button onclick="storeSet(${i})" class="w-8 h-8 rounded-lg text-sm ${i===storePage?'bg-gradient-to-r from-red-700 to-orange-500 font-bold':'border border-white/10 hover:bg-white/10'}">${i+1}</button>`;
+  }
+  $("pageNums").innerHTML=nums;
+}
+function storeGo(delta){ storePage+=delta; renderStore(); $("view-store").scrollTop=0; }
+function storeSet(n){ storePage=n; renderStore(); $("view-store").scrollTop=0; }
+
+async function loadStore(force){
+  const grid=$("storeGrid"), msg=$("storeMsg");
+  if(!loggedIn()){ grid.innerHTML=""; $("storePager").classList.add("hidden"); msg.innerHTML='Sign in to view the store. <button onclick="openAccount()" class="underline text-red-400">Sign in</button>'; return; }
+  if(storeLoaded && !force){ renderStore(); return; }
+  msg.textContent="Loading store…"; grid.innerHTML="";
+  try{
+    const data=await pfAuth("/Client/GetStoreItems",{ StoreId:CONFIG.playfabStoreId, CatalogVersion:CONFIG.playfabCatalog });
+    storeItems=data.Store||[];
+    storeCat={};
+    try{
+      const c=await pfAuth("/Client/GetCatalogItems",{ CatalogVersion:CONFIG.playfabCatalog });
+      (c.Catalog||[]).forEach(i=>storeCat[i.ItemId]=i);
+    }catch{}
+    await loadWallet();
+    if(!storeItems.length){ msg.textContent="No items in this store yet."; $("storePager").classList.add("hidden"); return; }
+    msg.textContent="";
+    storePage=0; renderStore();
+    storeLoaded=true;
+  }catch(e){ msg.textContent="Couldn't load the store: "+(e.message||"error"); }
+}
+
+// ---- cooldowns + wallet -------------------------------------------------
+const COOLDOWN_DAYS=30, COOLDOWN_MS=COOLDOWN_DAYS*24*60*60*1000;
+let ownedMap={};   // itemId -> newest purchase timestamp
+function cooldownLeft(itemId){
+  const t=ownedMap[itemId]; if(!t) return 0;
+  const left=COOLDOWN_MS-(Date.now()-t);
+  return left>0?left:0;
+}
+function cooldownLabel(ms){
+  const d=Math.ceil(ms/86400000);
+  if(d>1) return d+"d";
+  const h=Math.ceil(ms/3600000);
+  return h>1? h+"h" : "soon";
+}
+async function loadWallet(){
+  try{
+    const inv=await pfAuth("/Client/GetUserInventory",{});
+    const vc=inv.VirtualCurrency||{};
+    const copper=toCopper(vc);
+    const extra=Object.entries(vc).filter(([c])=>!["GC","SC","CC","RM"].includes(c) && Number(vc[c])>0)
+                  .map(([c,v])=>`${v} ${c}`);
+    $("walletBar").innerHTML = [fmtCoins(copper), ...extra].join("  •  ");
+    ownedMap={};
+    (inv.Inventory||[]).forEach(i=>{
+      if(!i.ItemId) return;
+      const t=i.PurchaseDate? Date.parse(i.PurchaseDate) : 0;
+      if(!ownedMap[i.ItemId] || t>ownedMap[i.ItemId]) ownedMap[i.ItemId]=t;
+    });
+  }catch{}
+}
+
+// ---- buy ----------------------------------------------------------------
+async function buyItem(itemId){
+  if(maintLock()){ $("storeMsg").textContent="The store is closed during maintenance."; return; }
+  if(!loggedIn()){ openAccount(); return; }
+  const msg=$("storeMsg");
+  try{
+    msg.textContent="Purchasing…";
+    const data=await pfAuth("/Client/ExecuteCloudScript",{
+      FunctionName: CONFIG.buyFunction,
+      FunctionParameter: { itemId:itemId, catalogVersion:CONFIG.playfabCatalog, storeId:CONFIG.playfabStoreId },
+      GeneratePlayStreamEvent: true
+    });
+    const err=data.Error;
+    if(err){
+      let detail=err.Message||err.Error||"CloudScript error";
+      if(err.StackTrace){ const m=String(err.StackTrace).split("\n")[0]; if(m) detail=m; }
+      if(String(err.Error||"").indexOf("RequestCountExceeded")>=0)
+        detail="script hit PlayFab's request limit - redeploy it.";
+      if(/No function named/i.test(detail) || String(err.Error||"").indexOf("FunctionNotFound")>=0)
+        detail="purchase script not deployed (Cloud Script > Revisions > Deploy).";
+      throw new Error(detail);
+    }
+    const r=data.FunctionResult||{};
+    if(r.success){ msg.textContent="Purchased ✔"; beep("login"); }
+    else if(r.reason==="maintenance"){ msg.textContent="The store is closed during maintenance."; beep("error"); }
+    else if(r.reason==="cooldown"){ msg.textContent="You already own this — you can buy it again in "+(r.daysRemaining||0)+" day(s)."; beep("error"); }
+    else if(r.reason==="insufficient"){ msg.innerHTML="Not enough coins. You have "+fmtCoins(r.haveCopper||0)+", price is "+fmtCoins(r.priceCopper||0)+"."; beep("error"); }
+    else { msg.textContent="Purchase failed."; beep("error"); }
+    await loadWallet(); renderStore();
+  }catch(e){ msg.textContent="Purchase failed: "+(e.message||"error"); beep("error"); await loadWallet(); renderStore(); }
+}
+
+// ---- auth forms ---------------------------------------------------------
+function authTab(which){ const login=which==="login";
+  $("formLogin").classList.toggle("hidden", !login); $("formRegister").classList.toggle("hidden", login);
+  $("tabLogin").className="flex-1 py-2 rounded-lg text-xs uppercase tracking-widest "+(login?"bg-white/10":"border border-white/10");
+  $("tabRegister").className="flex-1 py-2 rounded-lg text-xs uppercase tracking-widest "+(!login?"bg-white/10":"border border-white/10");
+  loginError(""); }
+function loginError(msg){ const el=$("loginError"); if(!msg){ el.classList.add("hidden"); return; } el.textContent=msg; el.classList.remove("hidden"); }
+function setAuthBusy(s){ $("loginBtn").disabled=s; $("registerBtn").disabled=s; }
+
+async function doLogin(){
+  if(!CONFIG.playfabTitleId){ loginError("Set your PlayFab Title ID in CONFIG."); beep("error"); return; }
+  const id=$("loginId").value.trim(), pw=$("loginPass").value;
+  if(!id||!pw){ loginError("Enter your email/username and password."); beep("error"); return; }
+  setAuthBusy(true); loginError("");
+  try{ saved.account=await pfLogin(id,pw); persist(saved); $("loginPass").value=""; renderAccount(); beep("login"); loadProfile(); afterAuth(); setTimeout(closeAccount,600); }
+  catch(e){ loginError(friendlyAuthError(e)); beep("error"); } finally{ setAuthBusy(false); }
+}
+async function doRegister(){
+  if(!CONFIG.playfabTitleId){ loginError("Set your PlayFab Title ID in CONFIG."); beep("error"); return; }
+  const u=$("regUser").value.trim(), em=$("regEmail").value.trim(), pw=$("regPass").value;
+  if(u.length<3){ loginError("Username must be at least 3 characters."); beep("error"); return; }
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){ loginError("Enter a valid email address."); beep("error"); return; }
+  if(pw.length<6){ loginError("Password must be at least 6 characters."); beep("error"); return; }
+  setAuthBusy(true); loginError("");
+  try{ saved.account=await pfRegister(u,em,pw); persist(saved); $("regPass").value=""; renderAccount(); beep("login"); loadProfile(); afterAuth(); setTimeout(closeAccount,600); }
+  catch(e){ loginError(friendlyAuthError(e)); beep("error"); } finally{ setAuthBusy(false); }
+}
+function doLogout(){ saved.account=null; persist(saved); storeLoaded=false; maintenance={on:false}; applyMaintenance(); $("storeGrid").innerHTML=""; $("walletBar").innerHTML=""; renderAccount(); loadStore(); beep(); }
+
+function afterAuth(){ loadStore(true); refreshLive(); }
+
+async function loadProfile(){
+  try{
+    const d=await pfAuth("/Client/GetAccountInfo",{});
+    const a=(d&&d.AccountInfo)||{}, t=a.TitleInfo||{}, pv=a.PrivateInfo||{};
+    saved.account.display=t.DisplayName||a.Username||"";
+    saved.account.avatar=t.AvatarUrl||"";
+    saved.account.email=pv.Email||"";
+    persist(saved); renderAccount();
+  }catch{}
+}
+async function saveProfile(){
+  const n=$("pf_name").value.trim(), e=$("pf_email").value.trim(), av=$("pf_avatar").value.trim();
+  $("pfMsg").textContent="Saving...";
+  try{
+    if(n && n!==saved.account.display) await pfAuth("/Client/UpdateUserTitleDisplayName",{DisplayName:n});
+    if(av!==(saved.account.avatar||"")) await pfAuth("/Client/UpdateAvatarUrl",{ImageUrl:av});
+    if(e && e!==(saved.account.email||"")) await pfAuth("/Client/AddOrUpdateContactEmail",{EmailAddress:e});
+    if(n) saved.account.display=n;
+    saved.account.avatar=av; if(e) saved.account.email=e;
+    persist(saved); renderAccount();
+    $("pfMsg").textContent="Profile saved."; beep("login");
+  }catch(err){ $("pfMsg").textContent="Save failed: "+(err.message||"error"); beep("error"); }
+}
+
+function renderAccount(){
+  const b=$("accountBtn");
+  if(saved.account){
+    $("loggedIn").classList.remove("hidden"); $("loggedOut").classList.add("hidden");
+    $("accountName").innerText=acctLabel();
+    const av=$("pfAvatar"); if(av){ if(saved.account.avatar){ av.src=saved.account.avatar; av.style.visibility="visible"; } else av.style.visibility="hidden"; }
+    if($("pf_name")) $("pf_name").value=saved.account.display||"";
+    if($("pf_email")) $("pf_email").value=saved.account.email||"";
+    if($("pf_avatar")) $("pf_avatar").value=saved.account.avatar||"";
+    $("accountId").innerText=saved.account.playFabId?("PlayFab ID: "+saved.account.playFabId):"";
+    b.textContent="◆ "+acctLabel();
+    $("acctBadge").innerHTML="◆ "+escapeHtml(acctLabel());
+  } else {
+    $("loggedIn").classList.add("hidden"); $("loggedOut").classList.remove("hidden");
+    b.textContent="Sign in"; $("acctBadge").innerText="Not signed in";
+  }
+}
+
+// ---- maintenance (store lock only) --------------------------------------
+let maintenance={on:false};
+async function refreshLive(){
+  if(!loggedIn()){ maintenance={on:false}; applyMaintenance(); return; }
+  try{
+    const td=await pfAuth("/Client/GetTitleData",{ Keys:["maintenance"] });
+    const d=(td&&td.Data)||{};
+    try{ maintenance = d.maintenance ? JSON.parse(d.maintenance) : {on:false}; }catch{ maintenance={on:false}; }
+  }catch{ maintenance={on:false}; }
+  applyMaintenance();
+}
+function maintLock(){ return !!(maintenance&&maintenance.on); }
+function applyMaintenance(){
+  const sl=$("storeLock");
+  if(sl){ sl.classList.toggle("hidden", !maintLock());
+    if(maintLock()) sl.textContent = (maintenance.title? maintenance.title+" — " : "") + (maintenance.message || "The store is closed during maintenance."); }
+  if(storeLoaded) renderStore();
+}
+
+// ---- init ---------------------------------------------------------------
+renderAccount();
+if(loggedIn()){ loadStore(); refreshLive(); }
+else { loadStore(); }
+</script>
+</body>
+</html>
