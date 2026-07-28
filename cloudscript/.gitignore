@@ -1,0 +1,4 @@
+# Raw whitespace-inflated CloudScript dumps pulled from PlayFab (~10 MB each).
+# These are transient snapshots; main.clean.js is the source of truth.
+main.js
+main.rev80.js
