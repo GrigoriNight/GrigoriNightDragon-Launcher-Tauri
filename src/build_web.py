@@ -21,7 +21,7 @@ stubs = (
 
 # Apply edits bottom-to-top so earlier line numbers stay valid.
 # handleError (orig 1243..1249) is only called by the removed engine -> drop it.
-del lines[1242:1249]              # 1243..1249 inclusive (0-idx 1242..1248)
+del lines[1242:1250]              # 1243..1250 inclusive (blank + handleError, 0-idx 1242..1249)
 # engine block 943..1223 -> stubs
 lines[942:1223] = [stubs]         # replace 0-idx 942..1222
 # updateFace self-update overlay (orig 156..170) -> gone

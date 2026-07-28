@@ -646,7 +646,7 @@ async function doLogin(){
   const id=$("loginId").value.trim(), pw=$("loginPass").value;
   if(!id||!pw){ loginError("Enter your email/username and password."); beep("error"); return; }
   setAuthBusy(true); loginError("");
-  try{ saved.account=await pfLogin(id,pw); persist(saved); $("loginPass").value=""; renderAccount(); beep("login"); loadProfile(); refreshLive(); setTimeout(closeAccount,600); }
+  try{ saved.account=await pfLogin(id,pw); persist(saved); await claimSession(); startSessionGuard(); $("loginPass").value=""; renderAccount(); beep("login"); loadProfile(); refreshLive(); setTimeout(closeAccount,600); }
   catch(e){ loginError(friendlyAuthError(e)); beep("error"); } finally{ setAuthBusy(false); }
 }
 async function doRegister(){
@@ -656,7 +656,7 @@ async function doRegister(){
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){ loginError("Enter a valid email address."); beep("error"); return; }
   if(pw.length<6){ loginError("Password must be at least 6 characters."); beep("error"); return; }
   setAuthBusy(true); loginError("");
-  try{ saved.account=await pfRegister(u,em,pw); persist(saved); $("regPass").value=""; renderAccount(); beep("login"); loadProfile(); refreshLive(); setTimeout(closeAccount,600); }
+  try{ saved.account=await pfRegister(u,em,pw); persist(saved); await claimSession(); startSessionGuard(); $("regPass").value=""; renderAccount(); beep("login"); loadProfile(); refreshLive(); setTimeout(closeAccount,600); }
   catch(e){ loginError(friendlyAuthError(e)); beep("error"); } finally{ setAuthBusy(false); }
 }
 function doLogout(){ saved.account=null; persist(saved); storeLoaded=false; isAdmin=false; maintenance={on:false}; applyMaintenance(); if($("storeGrid")) $("storeGrid").innerHTML=""; renderAccount(); beep(); }
@@ -1249,6 +1249,37 @@ function handleError(err){
   checkStatus();
 }
 
+// ---- single active session: only one launcher may be logged in per account
+//      A random session id is written to the player's PlayFab UserData on login.
+//      Every launcher polls it; if the stored id no longer matches ours, another
+//      launcher has signed in with this account, so we sign out here.
+let sessionGuardTimer=null;
+function newSessionId(){ try{ if(crypto.randomUUID) return crypto.randomUUID(); }catch{} return Date.now().toString(36)+Math.random().toString(36).slice(2); }
+async function claimSession(){
+  if(!saved.account) return;
+  saved.account.session=newSessionId(); persist(saved);
+  try{ await pfAuth("/Client/UpdateUserData",{Data:{gnd_session:saved.account.session}}); }catch{}
+}
+async function enforceSingleSession(){
+  if(!loggedIn()||!saved.account.session) return;
+  try{
+    const d=await pfAuth("/Client/GetUserData",{Keys:["gnd_session"]});
+    const rec=d&&d.Data&&d.Data.gnd_session, remote=rec&&rec.Value;
+    if(remote && remote!==saved.account.session) forceLogout();
+  }catch{}
+}
+function forceLogout(){
+  doLogout(); openAccount();
+  loginError("You were signed out because this account signed in on another launcher.");
+  beep("error");
+}
+async function startSessionGuard(){
+  if(sessionGuardTimer) clearInterval(sessionGuardTimer);
+  if(loggedIn() && !saved.account.session) await claimSession();
+  enforceSingleSession();
+  sessionGuardTimer=setInterval(enforceSingleSession, 5000);
+}
+
 // ---- bug report (mailto — no external service) --------------------------
 function openBugReport(){
   beep();
@@ -1326,7 +1357,7 @@ window.addEventListener("keydown", firstGesture);
 initMusic();
 
 showTab("play");
-renderAccount(); applyState(); tick(); startRecheck(); refreshLive(); startLivePoll();
+renderAccount(); applyState(); tick(); startRecheck(); refreshLive(); startLivePoll(); startSessionGuard();
 loadGithubNews(); setInterval(loadGithubNews, 30000);   // GitHub news for everyone, refreshed periodically
 </script>
 </body>
