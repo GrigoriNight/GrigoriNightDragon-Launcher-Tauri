@@ -1215,17 +1215,17 @@ async function repairFiles(){
 }
 
 // ---- connectivity -------------------------------------------------------
-async function checkStatus(){
+async function checkStatus(silent){
   if(checking) return; checking=true; const el=$("status");
-  el.className="text-yellow-400 cursor-pointer select-none animate-pulse"; el.textContent="● Checking..."; gateButtons();
+  if(!silent){ el.className="text-yellow-400 cursor-pointer select-none animate-pulse"; el.textContent="● Checking..."; } gateButtons();
   const ctrl=new AbortController(); const timer=setTimeout(()=>ctrl.abort(),8000);
   try{ await fetch(CONFIG.gameUrl,{method:"HEAD",mode:"no-cors",cache:"no-store",signal:ctrl.signal});
-    serverOnline=true; el.className="text-green-400 cursor-pointer select-none"; el.textContent="● Online";
+    serverOnline=true; el.className="text-green-400 cursor-pointer select-none"; el.textContent="● Connected";
   }catch{
     // Some CDNs refuse HEAD — try a tiny ranged GET before declaring it down.
     try{
       await fetch(CONFIG.gameUrl,{method:"GET",mode:"no-cors",cache:"no-store",headers:{Range:"bytes=0-0"}});
-      serverOnline=true; el.className="text-green-400 cursor-pointer select-none"; el.textContent="● Online";
+      serverOnline=true; el.className="text-green-400 cursor-pointer select-none"; el.textContent="● Connected";
     }catch{
       if(navigator.onLine){
         // We can't probe the host (CDN/CSP blocks it) but the device has internet.
@@ -1238,8 +1238,8 @@ async function checkStatus(){
   }
   finally{ clearTimeout(timer); checking=false; gateButtons(); }
 }
-async function tick(){ await checkStatus(); if(serverOnline) await refreshManifest(); }
-function startRecheck(){ if(recheckTimer) clearInterval(recheckTimer); recheckTimer=setInterval(tick, Math.max(5,CONFIG.recheckSeconds)*1000); }
+async function tick(silent){ await checkStatus(silent); if(serverOnline) await refreshManifest(); }
+function startRecheck(){ if(recheckTimer) clearInterval(recheckTimer); recheckTimer=setInterval(()=>tick(true), Math.max(5,CONFIG.recheckSeconds)*1000); }
 
 // ---- live content poll: pulls admin news + maintenance every second so an
 //      update posted by an admin shows up on other accounts without a reload.
