@@ -27,6 +27,10 @@
   <div class="h-14 flex items-center gap-4 px-8 border-b border-white/10 bg-black/60">
     <img src="GrigoriNightDragon-logo.png" onerror="this.style.display='none'" class="w-8 h-8 object-contain"/>
     <div class="font-black uppercase tracking-widest">GrigoriNightDragon</div>
+    <nav class="flex items-center gap-5 ml-6">
+      <button id="tab-store" onclick="showView('store')" class="text-sm uppercase tracking-widest border-b-2 border-red-500 text-white pb-0.5">Store</button>
+      <button id="tab-news" onclick="showView('news')" class="text-sm uppercase tracking-widest border-b-2 border-transparent text-gray-400 hover:text-white pb-0.5">News</button>
+    </nav>
     <button id="accountBtn" onclick="openAccount()" class="ml-auto px-4 py-1.5 border border-white/10 rounded-lg text-xs uppercase tracking-widest hover:bg-white/10">Sign in</button>
   </div>
 
@@ -47,6 +51,16 @@
       <div id="pageNums" class="flex items-center gap-1"></div>
       <button onclick="storeGo(1)" id="pageNext" class="px-4 py-2 border border-white/10 rounded-lg text-sm hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed">Next ›</button>
     </div>
+  </div>
+
+  <!-- NEWS -->
+  <div id="view-news" class="hidden flex-1 ovf">
+    <div class="flex items-center justify-between mb-6 max-w-5xl">
+      <h1 class="text-3xl font-black uppercase tracking-widest">News</h1>
+      <button onclick="loadGithubNews(true)" class="px-3 py-1.5 border border-white/10 rounded-lg text-xs uppercase tracking-widest hover:bg-white/10">Refresh</button>
+    </div>
+    <div id="newsMsg" class="text-sm text-gray-400 mb-4"></div>
+    <div id="newsList" class="grid md:grid-cols-2 gap-5 max-w-5xl"></div>
   </div>
 
   <!-- BOTTOM STATUS BAR -->
@@ -111,6 +125,42 @@ const CONFIG = {
   playfabStoreId: "01",            // store ID
   buyFunction: "buyItemCascade"    // CloudScript purchase handler
 };
+
+/* ===== GitHub-backed news (public repo, read-only here) ===== */
+const NEWS = { owner:"GrigoriNight", repo:"gnd-news", path:"news.html", branch:"main" };
+function newsRawUrl(){ return `https://raw.githubusercontent.com/${NEWS.owner}/${NEWS.repo}/${NEWS.branch}/${NEWS.path}?t=${Date.now()}`; }
+function parseNewsHtml(html){
+  const m = html.match(/<script id="gnd-news-data"[^>]*>([\s\S]*?)<\/script>/i);
+  if(!m) return null;
+  try{ const arr=JSON.parse(m[1].trim()); return Array.isArray(arr)?arr:null; }catch{ return null; }
+}
+let newsLoaded=false;
+async function loadGithubNews(force){
+  const wrap=$("newsList"), msg=$("newsMsg");
+  if(newsLoaded && !force){ return; }
+  if(msg) msg.textContent="Loading news…";
+  try{
+    const r=await fetch(newsRawUrl(),{cache:"no-store"});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const arr=parseNewsHtml(await r.text())||[];
+    newsLoaded=true;
+    if(msg) msg.textContent="";
+    if(!arr.length){ wrap.innerHTML='<div class="text-gray-500 text-sm">No news yet.</div>'; return; }
+    wrap.innerHTML=arr.map(n=>`<div class="cd p-6">
+      <div class="text-red-400 text-xs uppercase mb-2">${escapeHtml(n.tag||"News")}</div>
+      <div class="font-bold text-xl">${escapeHtml(n.title||"")}</div>
+      ${n.date?`<div class="text-gray-600 text-xs mt-0.5">${escapeHtml(n.date)}</div>`:""}
+      <p class="text-gray-400 mt-2 text-sm whitespace-pre-line">${escapeHtml(n.body||"")}</p>
+    </div>`).join("");
+  }catch(e){ if(msg) msg.textContent="Couldn't load news: "+(e.message||"error"); }
+}
+function showView(name){
+  ["store","news"].forEach(v=>{
+    $("view-"+v).classList.toggle("hidden", v!==name);
+    const t=$("tab-"+v); if(t){ t.className="text-sm uppercase tracking-widest border-b-2 pb-0.5 "+(v===name?"border-red-500 text-white":"border-transparent text-gray-400 hover:text-white"); }
+  });
+  if(name==="news") loadGithubNews();
+}
 
 const PREF_DEFAULTS = { account:null };
 let _mem={};
@@ -424,6 +474,8 @@ function applyMaintenance(){
 renderAccount();
 if(loggedIn()){ loadStore(); refreshLive(); }
 else { loadStore(); }
+loadGithubNews();   // news is public — load regardless of sign-in
+setInterval(()=>loadGithubNews(true), 30000);
 </script>
 </body>
 </html>

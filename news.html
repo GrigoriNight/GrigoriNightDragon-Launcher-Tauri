@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GrigoriNightDragon — News</title>
+<style>
+  :root{color-scheme:dark}
+  body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;color:#fff;
+       background:radial-gradient(circle at 70% 25%,#3a0d0d 0%,#140606 45%,#050505 100%),#000;min-height:100vh}
+  .wrap{max-width:960px;margin:0 auto;padding:48px 24px}
+  h1{font-size:2rem;font-weight:900;text-transform:uppercase;letter-spacing:.15em;margin:0 0 24px}
+  .grid{display:grid;gap:20px}
+  @media(min-width:720px){.grid{grid-template-columns:1fr 1fr}}
+  .card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:.75rem;padding:24px}
+  .tag{color:#f87171;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}
+  .title{font-weight:700;font-size:1.25rem}
+  .date{color:#6b7280;font-size:.7rem;margin-top:2px}
+  .body{color:#9ca3af;margin-top:8px;font-size:.9rem;white-space:pre-line}
+  .empty{color:#6b7280}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>News</h1>
+    <div id="newsList" class="grid"></div>
+  </div>
+
+  <!-- gnd-news-data: edited live by the launcher admin panel. Keep this exact id/type. -->
+  <script id="gnd-news-data" type="application/json">
+[
+  {"tag":"Update","title":"Elyria","body":"Massive world update.","date":""}
+]
+  </script>
+
+  <script>
+    (function(){
+      function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){
+        return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];});}
+      var data=[];
+      try{ data=JSON.parse(document.getElementById("gnd-news-data").textContent)||[]; }catch(e){}
+      var wrap=document.getElementById("newsList");
+      if(!data.length){ wrap.innerHTML='<div class="empty">No news yet.</div>'; return; }
+      wrap.innerHTML=data.map(function(n){
+        return '<div class="card">'
+          +'<div class="tag">'+esc(n.tag||"News")+'</div>'
+          +'<div class="title">'+esc(n.title||"")+'</div>'
+          +(n.date?'<div class="date">'+esc(n.date)+'</div>':'')
+          +'<div class="body">'+esc(n.body||"")+'</div>'
+          +'</div>';
+      }).join("");
+    })();
+  </script>
+</body>
+</html>

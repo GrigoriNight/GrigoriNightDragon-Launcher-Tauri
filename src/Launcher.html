@@ -193,6 +193,12 @@
         <div id="liveNow" class="text-xs text-gray-500 mb-3"></div>
         <div id="adminNews"></div>
       </div>
+      <div class="border border-white/10 rounded-xl p-4 mt-5">
+        <h3 class="uppercase tracking-widest text-gray-400 text-xs mb-2">GitHub publishing</h3>
+        <p class="text-[11px] text-gray-500 mb-2">Token stays in this browser only and is never shipped. Use a fine-grained token with <b>Contents: Read &amp; write</b> on <b>GrigoriNight/gnd-news</b>.</p>
+        <input id="gh_token" type="password" class="field" style="margin:0" placeholder="GitHub token (ghp_… / github_pat_…)"/>
+        <div id="ghState" class="text-[11px] text-gray-500 mt-2"></div>
+      </div>
     </div>
     <div class="flex gap-3 mt-5">
       <button onclick="saveAdmin()" class="flex-1 bg-gradient-to-r from-amber-500 to-yellow-500 text-black py-3 rounded-xl font-bold uppercase tracking-widest hover:brightness-110">Publish live</button>
@@ -344,6 +350,27 @@ const CONFIG = {
 };
 const LAUNCHER_VERSION = "1.0.0";   // bump this when you deploy a new launcher build
 
+/* ===== GitHub-backed news ===== *
+ * News lives in a PUBLIC repo so every player can read it without a token.
+ * Admins publish by pasting a GitHub token (contents:write on this repo only)
+ * into the admin panel; it is stored ONLY in the admin's own browser and is
+ * NEVER shipped with the app. Do not hardcode a token here. */
+const NEWS = {
+  owner: "GrigoriNight",
+  repo:  "gnd-news",
+  path:  "news.html",
+  branch:"main"
+};
+function newsRawUrl(){ return `https://raw.githubusercontent.com/${NEWS.owner}/${NEWS.repo}/${NEWS.branch}/${NEWS.path}?t=${Date.now()}`; }
+function ghToken(){ try{ return localStorage.getItem("gnd_gh_token")||""; }catch{ return ""; } }
+function setGhToken(t){ try{ if(t) localStorage.setItem("gnd_gh_token",t); else localStorage.removeItem("gnd_gh_token"); }catch{} }
+// Parse the embedded JSON out of a fetched news.html document.
+function parseNewsHtml(html){
+  const m = html.match(/<script id="gnd-news-data"[^>]*>([\s\S]*?)<\/script>/i);
+  if(!m) return null;
+  try{ const arr=JSON.parse(m[1].trim()); return Array.isArray(arr)?arr:null; }catch{ return null; }
+}
+
 const PREF_DEFAULTS = { hideOnPlay:true, muted:false, musicOn:true, autoUpdate:false, account:null, installedVersion:null };
 let _mem={};
 function loadPrefs(){ try{ return JSON.parse(localStorage.getItem("gnd_prefs"))||{}; }catch{ return _mem; } }
@@ -362,6 +389,7 @@ function showTab(name){
     $("tab-"+t).className = tabClass(t===name);
   });
   if(name==="store") loadStore();
+  if(name==="news") loadGithubNews();
 }
 
 // ---- sound --------------------------------------------------------------
@@ -692,7 +720,7 @@ function renderAccount(){
 }
 
 // ---- admin panel + live content (PlayFab Title Data) --------------------
-let isAdmin=false, liveNews=null, maintenance={on:false}, adminDiag="";
+let isAdmin=false, liveNews=null, githubNews=null, maintenance={on:false}, adminDiag="";
 
 async function refreshLive(){
   if(!loggedIn()){ isAdmin=false; $("adminBtn").classList.add("hidden"); applyMaintenance(); return; }
@@ -720,12 +748,101 @@ async function refreshLive(){
 
 function renderNews(){
   const wrap=$("newsList");
-  if(!wrap || !liveNews || !liveNews.length) return;   // no live news -> keep built-in cards
-  wrap.innerHTML = liveNews.map(n=>`<div class="cd p-6">
+  const items = (githubNews && githubNews.length) ? githubNews : liveNews;   // GitHub primary, PlayFab fallback
+  if(!wrap || !items || !items.length) return;   // nothing live -> keep built-in cards
+  wrap.innerHTML = items.map(n=>`<div class="cd p-6">
     <div class="text-red-400 text-xs uppercase mb-2">${escapeHtml(n.tag||"News")}</div>
     <div class="font-bold text-xl">${escapeHtml(n.title||"")}</div>
+    ${n.date?`<div class="text-gray-600 text-xs mt-0.5">${escapeHtml(n.date)}</div>`:""}
     <p class="text-gray-400 mt-2 text-sm whitespace-pre-line">${escapeHtml(n.body||"")}</p>
   </div>`).join("");
+}
+// Pull news from the public GitHub file (works for every player, no login/token needed).
+async function loadGithubNews(){
+  try{
+    const r=await fetch(newsRawUrl(),{cache:"no-store"});
+    if(!r.ok) return;
+    const arr=parseNewsHtml(await r.text());
+    if(arr){ githubNews=arr; renderNews(); }
+  }catch{}
+}
+// Rebuild the whole news.html page (viewable + embedded JSON) from a news array.
+function buildNewsHtml(news){
+  const json=JSON.stringify(news||[],null,2);
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GrigoriNightDragon &mdash; News</title>
+<style>
+  :root{color-scheme:dark}
+  body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;color:#fff;
+       background:radial-gradient(circle at 70% 25%,#3a0d0d 0%,#140606 45%,#050505 100%),#000;min-height:100vh}
+  .wrap{max-width:960px;margin:0 auto;padding:48px 24px}
+  h1{font-size:2rem;font-weight:900;text-transform:uppercase;letter-spacing:.15em;margin:0 0 24px}
+  .grid{display:grid;gap:20px}
+  @media(min-width:720px){.grid{grid-template-columns:1fr 1fr}}
+  .card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:.75rem;padding:24px}
+  .tag{color:#f87171;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}
+  .title{font-weight:700;font-size:1.25rem}
+  .date{color:#6b7280;font-size:.7rem;margin-top:2px}
+  .body{color:#9ca3af;margin-top:8px;font-size:.9rem;white-space:pre-line}
+  .empty{color:#6b7280}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>News</h1>
+    <div id="newsList" class="grid"></div>
+  </div>
+
+  <!-- gnd-news-data: edited live by the launcher admin panel. Keep this exact id/type. -->
+  <script id="gnd-news-data" type="application/json">
+${json}
+  <\/script>
+
+  <script>
+    (function(){
+      function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){
+        return {"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;","'":"&#39;"}[c];});}
+      var data=[];
+      try{ data=JSON.parse(document.getElementById("gnd-news-data").textContent)||[]; }catch(e){}
+      var wrap=document.getElementById("newsList");
+      if(!data.length){ wrap.innerHTML='<div class="empty">No news yet.</div>'; return; }
+      wrap.innerHTML=data.map(function(n){
+        return '<div class="card">'
+          +'<div class="tag">'+esc(n.tag||"News")+'</div>'
+          +'<div class="title">'+esc(n.title||"")+'</div>'
+          +(n.date?'<div class="date">'+esc(n.date)+'</div>':'')
+          +'<div class="body">'+esc(n.body||"")+'</div>'
+          +'</div>';
+      }).join("");
+    })();
+  <\/script>
+</body>
+</html>
+`;
+}
+// Publish news.html to the public repo via the GitHub Contents API (admin only).
+async function publishNewsToGithub(news){
+  const token=ghToken();
+  if(!token) throw new Error("Add a GitHub token in the admin panel to publish to GitHub.");
+  const api=`https://api.github.com/repos/${NEWS.owner}/${NEWS.repo}/contents/${NEWS.path}`;
+  const headers={ "Authorization":"token "+token, "Accept":"application/vnd.github+json" };
+  // current sha (needed to update an existing file)
+  let sha=null;
+  try{
+    const g=await fetch(`${api}?ref=${NEWS.branch}`,{headers,cache:"no-store"});
+    if(g.ok){ const gd=await g.json(); sha=gd.sha||null; }
+    else if(g.status===401||g.status===403) throw new Error("GitHub rejected the token (check scope/expiry).");
+  }catch(e){ if(/token/i.test(e.message)) throw e; }
+  const html=buildNewsHtml(news);
+  const b64=btoa(unescape(encodeURIComponent(html)));
+  const body={ message:"news: update via launcher admin", content:b64, branch:NEWS.branch };
+  if(sha) body.sha=sha;
+  const r=await fetch(api,{ method:"PUT", headers, body:JSON.stringify(body) });
+  if(!r.ok){ let m="HTTP "+r.status; try{ m=(await r.json()).message||m; }catch{} throw new Error("GitHub publish failed: "+m); }
 }
 
 function maintLock(){ return !!(maintenance&&maintenance.on) && !isAdmin; }
@@ -760,7 +877,9 @@ function openAdmin(){
   if(ln) ln.innerHTML = (liveNews&&liveNews.length)
     ? "Live now ("+liveNews.length+"): "+liveNews.map(n=>escapeHtml(n.title||"untitled")).join(" | ")
     : "Nothing published yet.";
-  renderAdminNews(liveNews||[]);
+  renderAdminNews((githubNews&&githubNews.length?githubNews:liveNews)||[]);
+  if($("gh_token")) $("gh_token").value=ghToken();
+  if($("ghState")) $("ghState").textContent=ghToken()?"Token saved in this browser.":"No token yet — GitHub publishing disabled.";
   $("adminMsg").textContent="";
   $("adminModal").classList.remove("hidden");
 }
@@ -792,7 +911,10 @@ function collectNews(){
 async function saveAdmin(){
   const news=collectNews();
   const maint={ on:$("mt_on").checked, title:$("mt_title").value.trim(), message:$("mt_msg").value.trim() };
+  if($("gh_token")){ setGhToken($("gh_token").value.trim()); }   // persist token locally
   $("adminMsg").textContent="Publishing…";
+  let pfOk=false, ghMsg="";
+  // 1) PlayFab (maintenance + fallback news)
   try{
     const r=await pfAuth("/Client/ExecuteCloudScript",{
       FunctionName:"adminSave",
@@ -802,11 +924,18 @@ async function saveAdmin(){
     if(r.Error) throw new Error(r.Error.Message||r.Error.Error||"CloudScript error");
     const fr=r.FunctionResult||{};
     if(!fr.success) throw new Error(fr.reason||"not authorized");
-    liveNews=news; maintenance=maint;
-    renderNews(); applyMaintenance();
-    $("adminMsg").textContent="Published — live for all players.";
-    beep("login");
-  }catch(e){ $("adminMsg").textContent="Publish failed: "+(e.message||"error"); beep("error"); }
+    liveNews=news; maintenance=maint; pfOk=true;
+  }catch(e){ ghMsg="PlayFab: "+(e.message||"error")+". "; }
+  // 2) GitHub news.html (primary source players read)
+  try{
+    await publishNewsToGithub(news);
+    githubNews=news; ghMsg+="GitHub: live.";
+  }catch(e){ ghMsg+=(e.message||"GitHub publish failed"); }
+  renderNews(); applyMaintenance();
+  const allOk = pfOk && /GitHub: live/.test(ghMsg);
+  $("adminMsg").textContent = allOk ? "Published — live on GitHub for all players." : ("Published with issues — "+ghMsg);
+  beep(allOk?"login":"error");
+  loadGithubNews();
 }
 
 // ---- formatting ---------------------------------------------------------
@@ -1196,6 +1325,7 @@ initMusic();
 
 showTab("play");
 renderAccount(); applyState(); tick(); startRecheck(); refreshLive(); startLivePoll();
+loadGithubNews(); setInterval(loadGithubNews, 30000);   // GitHub news for everyone, refreshed periodically
 </script>
 </body>
 </html>
