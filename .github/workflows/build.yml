@@ -32,14 +32,33 @@ jobs:
       - name: Install npm dependencies
         run: npm install
 
+      - name: Inject launcher version
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          echo "APP_VERSION=$VERSION" >> "$GITHUB_ENV"
+          # Bake the version into the launcher so it knows its own build number
+          node -e "const fs=require('fs');const v=process.argv[1];const f='src/Launcher.html';let s=fs.readFileSync(f,'utf8');s=s.replace(/const LAUNCHER_VERSION = \"[^\"]*\"/,'const LAUNCHER_VERSION = \"'+v+'\"');fs.writeFileSync(f,s);" "$VERSION"
+          echo "Injected LAUNCHER_VERSION=$VERSION"
+
       - name: Build Tauri app
         run: npm run build
+
+      - name: Prepare release assets
+        shell: bash
+        run: |
+          mkdir -p dist
+          EXE=$(ls src-tauri/target/release/bundle/nsis/*-setup.exe | head -n1)
+          cp "$EXE" "dist/GrigoriNightDragon-Setup.exe"
+          # manifest.json for launcher self-update: preserve game fields, stamp launcherVersion
+          node -e "const fs=require('fs');const v=process.argv[1];const m=JSON.parse(fs.readFileSync('manifest.json','utf8'));m.launcherVersion=v;fs.writeFileSync('dist/manifest.json',JSON.stringify(m,null,2));" "$APP_VERSION"
+          echo "Prepared release assets:"; ls -la dist
 
       - name: Upload NSIS installer (.exe)
         uses: actions/upload-artifact@v4
         with:
           name: GrigoriNightDragon-Setup-exe
-          path: src-tauri/target/release/bundle/nsis/*.exe
+          path: dist/GrigoriNightDragon-Setup.exe
 
       - name: Upload MSI installer
         uses: actions/upload-artifact@v4
@@ -54,5 +73,6 @@ jobs:
           name: Latest Build
           prerelease: true
           files: |
-            src-tauri/target/release/bundle/nsis/*.exe
+            dist/GrigoriNightDragon-Setup.exe
+            dist/manifest.json
             src-tauri/target/release/bundle/msi/*.msi

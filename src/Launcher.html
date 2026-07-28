@@ -328,9 +328,9 @@ const $ = (id) => document.getElementById(id);
 
 /* ===== DEVELOPER CONFIG (players never see this) ===== */
 const CONFIG = {
-  gameUrl: "https://img1.wsimg.com/blobby/go/4eb53488-7334-42b7-9c77-28becd180ebc/downloads/5d92b02d-f995-4339-b839-2675c10b35ea/game%20(2).zip?ver=1784674058880",
+  gameUrl: "https://github.com/GrigoriNight/GrigoriNightDragon-Launcher-Tauri/releases/download/game-files/game.zip",
   saveName: "GrigoriNightDragon-Setup.zip",
-  manifestUrl: "",   // add your manifest.json link here once it's hosted (enables update checks + Repair)
+  manifestUrl: "https://github.com/GrigoriNight/GrigoriNightDragon-Launcher-Tauri/releases/download/latest-build/manifest.json",   // update checks + Repair (hosted on GitHub Releases)
   expectedHash: "",
   recheckSeconds: 30,
   verifyAfterDownload: true,
@@ -344,7 +344,7 @@ const CONFIG = {
   emailjsPublicKey: "ObdglZ470ImCyPmy8",   // EmailJS PUBLIC key (safe in client)
   emailjsService:   "service_cgr7tvo",      // EmailJS service ID
   emailjsTemplate:  "template_by4ls5g",      // EmailJS template ID
-  launcherUrl: "",   // direct URL to the launcher update file (installer/zip); downloaded with live progress when launcherVersion changes
+  launcherUrl: "https://github.com/GrigoriNight/GrigoriNightDragon-Launcher-Tauri/releases/download/latest-build/GrigoriNightDragon-Setup.exe",   // direct URL to the launcher update file; downloaded with live progress when launcherVersion changes
   gameExe: "GrigoriNightDragon.exe",   // executable the desktop shell launches on Play
   musicUrl: "https://img1.wsimg.com/blobby/go/4eb53488-7334-42b7-9c77-28becd180ebc/downloads/4cffe538-dcd7-40bf-8cc7-2a6667083f69/Untitled%20(3).mp3?ver=1784667822476"   // background music track
 };

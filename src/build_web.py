@@ -29,7 +29,7 @@ del lines[155:170]                # 0-idx 155..169
 # Play action card (orig 75..93: progress bar + install/play/update/repair/cancel) -> CTA
 cta = (
 '    <div class="max-w-3xl">\n'
-'      <a href="https://github.com/GrigoriNight/GrigoriNightDragon-Launcher-Tauri/releases/download/latest-build/GrigoriNightDragon_1.0.0_x64-setup.exe" target="_blank" rel="noopener" '
+'      <a href="https://github.com/GrigoriNight/GrigoriNightDragon-Launcher-Tauri/releases/download/latest-build/GrigoriNightDragon-Setup.exe" target="_blank" rel="noopener" '
 'class="inline-block bg-gradient-to-r from-red-700 to-orange-500 '
 'px-8 py-4 rounded-xl font-bold uppercase tracking-widest hover:brightness-110">Download the Launcher</a>\n'
 '      <p class="text-xs text-gray-400 mt-3">Get the desktop launcher to install and play the game.</p>\n'
