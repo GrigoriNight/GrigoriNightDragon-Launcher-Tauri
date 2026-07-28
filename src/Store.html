@@ -84,13 +84,13 @@
       <div id="formLogin" class="space-y-3">
         <input id="loginId" class="field" placeholder="Email or username"/>
         <input id="loginPass" type="password" class="field" placeholder="Password"/>
-        <button id="loginBtn" onclick="doLogin()" class="w-full bg-gradient-to-r from-red-700 to-orange-500 py-2.5 rounded-lg font-bold uppercase tracking-widest hover:brightness-110 disabled:opac[...]</button>
+        <button id="loginBtn" onclick="doLogin()" class="w-full bg-gradient-to-r from-red-700 to-orange-500 py-2.5 rounded-lg font-bold uppercase tracking-widest hover:brightness-110 disabled:opacity-50">Log in</button>
       </div>
       <div id="formRegister" class="space-y-3 hidden">
         <input id="regUser" class="field" placeholder="Username (3–20 characters)"/>
         <input id="regEmail" type="email" class="field" placeholder="Email"/>
         <input id="regPass" type="password" class="field" placeholder="Password (min 6 characters)"/>
-        <button id="registerBtn" onclick="doRegister()" class="w-full bg-gradient-to-r from-red-700 to-orange-500 py-2.5 rounded-lg font-bold uppercase tracking-widest hover:brightness-110 disable[...]</button>
+        <button id="registerBtn" onclick="doRegister()" class="w-full bg-gradient-to-r from-red-700 to-orange-500 py-2.5 rounded-lg font-bold uppercase tracking-widest hover:brightness-110 disabled:opacity-50">Create account</button>
       </div>
       <div id="loginError" class="text-red-400 text-xs mt-3 hidden"></div>
     </div>
@@ -108,7 +108,7 @@
       <input id="pf_email" type="email" class="field" placeholder="you@example.com"/>
       <label class="text-xs text-gray-400">Avatar image URL</label>
       <input id="pf_avatar" class="field" placeholder="https://.../avatar.png"/>
-      <button onclick="saveProfile()" class="mt-3 w-full bg-gradient-to-r from-red-700 to-orange-500 py-2.5 rounded-lg font-bold uppercase tracking-widest text-sm hover:brightness-110">Save profi[...]</button>
+      <button onclick="saveProfile()" class="mt-3 w-full bg-gradient-to-r from-red-700 to-orange-500 py-2.5 rounded-lg font-bold uppercase tracking-widest text-sm hover:brightness-110">Save profile</button>
       <button onclick="doLogout()" class="mt-2 w-full ob py-2.5 text-sm uppercase tracking-widest">Log out</button>
       <div id="pfMsg" class="text-xs text-amber-400 mt-2"></div>
     </div>
@@ -216,6 +216,30 @@ async function pfAuth(path, body){
   return d.data;
 }
 
+// ---- guest session: anonymous PlayFab login so logged-out visitors can
+//      browse live store items/prices. Buying still requires a real account.
+let _guestTicket=null, _guestPending=null;
+async function ensureGuest(){
+  if(_guestTicket) return _guestTicket;
+  if(_guestPending) return _guestPending;
+  let gid=saved.guestId;
+  if(!gid){ gid="gnd_guest_"+Math.random().toString(36).slice(2)+Date.now().toString(36); saved.guestId=gid; persist(saved); }
+  _guestPending=pfPost("/Client/LoginWithCustomID",{TitleId:CONFIG.playfabTitleId,CustomId:gid,CreateAccount:true})
+    .then(d=>{ _guestTicket=d.SessionTicket; return _guestTicket; })
+    .finally(()=>{ _guestPending=null; });
+  return _guestPending;
+}
+async function readTicket(){ return (saved.account&&saved.account.ticket) ? saved.account.ticket : ensureGuest(); }
+async function pfRead(path, body){
+  const ticket=await readTicket();
+  const r=await fetch(pfBase()+path,{ method:"POST",
+    headers:{"Content-Type":"application/json","X-Authorization":ticket},
+    body:JSON.stringify(body||{}) });
+  let d={}; try{ d=await r.json(); }catch{}
+  if(!r.ok || d.code!==200) throw new Error(d.errorMessage || d.error || ("HTTP "+r.status));
+  return d.data;
+}
+
 // ---- currency: 100 copper = 1 silver, 100 silver = 1 gold ---------------
 const CUR_NAMES={GC:"Gold",SC:"Silver",CC:"Copper"};
 const COPPER_PER_SILVER=100, SILVER_PER_GOLD=100;
@@ -261,6 +285,9 @@ function storeCard(it){
     : cd>0
     ? `<button disabled title="Already owned — available again in ${cooldownLabel(cd)}"
          class="px-4 py-2 rounded-lg bg-white/10 text-gray-400 text-xs font-bold uppercase tracking-widest cursor-not-allowed">Owned · ${cooldownLabel(cd)}</button>`
+    : !loggedIn()
+    ? `<button onclick="openAccount()"
+         class="px-5 py-2 rounded-lg border border-white/20 text-xs font-bold uppercase tracking-widest hover:bg-white/10">Sign in to buy</button>`
     : `<button onclick="buyItem('${escapeHtml(it.ItemId)}')"
          class="px-5 py-2 rounded-lg bg-gradient-to-r from-red-700 to-orange-500 text-xs font-bold uppercase tracking-widest hover:brightness-110">Buy</button>`;
   return `<div class="cd p-5 flex flex-col h-full">
@@ -287,7 +314,7 @@ function renderStore(){
   $("pageNext").disabled = storePage===pages-1;
   let nums="";
   for(let i=0;i<pages;i++){
-    nums += `<button onclick="storeSet(${i})" class="w-8 h-8 rounded-lg text-sm ${i===storePage?'bg-gradient-to-r from-red-700 to-orange-500 font-bold':'border border-white/10 hover:bg-white/10'}[...]`;
+    nums += `<button onclick="storeSet(${i})" class="w-8 h-8 rounded-lg text-sm ${i===storePage?'bg-gradient-to-r from-red-700 to-orange-500 font-bold':'border border-white/10 hover:bg-white/10'}">${i+1}</button>`;
   }
   $("pageNums").innerHTML=nums;
 }
@@ -296,18 +323,17 @@ function storeSet(n){ storePage=n; renderStore(); $("view-store").scrollTop=0; }
 
 async function loadStore(force){
   const grid=$("storeGrid"), msg=$("storeMsg");
-  if(!loggedIn()){ grid.innerHTML=""; $("storePager").classList.add("hidden"); msg.innerHTML='Sign in to view the store. <button onclick="openAccount()" class="underline text-red-400">Sign in</button>[...]';
   if(storeLoaded && !force){ renderStore(); return; }
   msg.textContent="Loading store…"; grid.innerHTML="";
   try{
-    const data=await pfAuth("/Client/GetStoreItems",{ StoreId:CONFIG.playfabStoreId, CatalogVersion:CONFIG.playfabCatalog });
+    const data=await pfRead("/Client/GetStoreItems",{ StoreId:CONFIG.playfabStoreId, CatalogVersion:CONFIG.playfabCatalog });
     storeItems=data.Store||[];
     storeCat={};
     try{
-      const c=await pfAuth("/Client/GetCatalogItems",{ CatalogVersion:CONFIG.playfabCatalog });
+      const c=await pfRead("/Client/GetCatalogItems",{ CatalogVersion:CONFIG.playfabCatalog });
       (c.Catalog||[]).forEach(i=>storeCat[i.ItemId]=i);
     }catch{}
-    await loadWallet();
+    if(loggedIn()) await loadWallet(); else { ownedMap={}; $("walletBar").innerHTML=""; }
     if(!storeItems.length){ msg.textContent="No items in this store yet."; $("storePager").classList.add("hidden"); return; }
     msg.textContent="";
     storePage=0; renderStore();
@@ -405,7 +431,7 @@ async function doRegister(){
   try{ saved.account=await pfRegister(u,em,pw); persist(saved); $("regPass").value=""; renderAccount(); beep("login"); loadProfile(); afterAuth(); setTimeout(closeAccount,600); }
   catch(e){ loginError(friendlyAuthError(e)); beep("error"); } finally{ setAuthBusy(false); }
 }
-function doLogout(){ saved.account=null; persist(saved); storeLoaded=false; maintenance={on:false}; applyMaintenance(); $("storeGrid").innerHTML=""; $("walletBar").innerHTML=""; renderAccount(); [...]
+function doLogout(){ saved.account=null; persist(saved); storeLoaded=false; maintenance={on:false}; applyMaintenance(); $("walletBar").innerHTML=""; ownedMap={}; renderAccount(); beep(); loadStore(true); refreshLive(); }
 
 function afterAuth(){ loadStore(true); refreshLive(); }
 
@@ -454,9 +480,8 @@ function renderAccount(){
 // ---- maintenance (store lock only) --------------------------------------
 let maintenance={on:false};
 async function refreshLive(){
-  if(!loggedIn()){ maintenance={on:false}; applyMaintenance(); return; }
   try{
-    const td=await pfAuth("/Client/GetTitleData",{ Keys:["maintenance"] });
+    const td=await pfRead("/Client/GetTitleData",{ Keys:["maintenance"] });
     const d=(td&&td.Data)||{};
     try{ maintenance = d.maintenance ? JSON.parse(d.maintenance) : {on:false}; }catch{ maintenance={on:false}; }
   }catch{ maintenance={on:false}; }
@@ -472,8 +497,8 @@ function applyMaintenance(){
 
 // ---- init ---------------------------------------------------------------
 renderAccount();
-if(loggedIn()){ loadStore(); refreshLive(); }
-else { loadStore(); }
+loadStore();
+refreshLive();
 loadGithubNews();   // news is public — load regardless of sign-in
 setInterval(()=>loadGithubNews(true), 30000);
 </script>

@@ -518,8 +518,8 @@ function storeCard(it){
     : cd>0
     ? `<button disabled title="Already owned — available again in ${cooldownLabel(cd)}"
          class="px-4 py-2 rounded-lg bg-white/10 text-gray-400 text-xs font-bold uppercase tracking-widest cursor-not-allowed">Owned · ${cooldownLabel(cd)}</button>`
-    : `<button onclick="buyItem('${escapeHtml(it.ItemId)}')"
-         class="px-5 py-2 rounded-lg bg-gradient-to-r from-red-700 to-orange-500 text-xs font-bold uppercase tracking-widest hover:brightness-110">Buy</button>`;
+    : !loggedIn()
+    ? `<button onclick="openAccount()" class="px-5 py-2 rounded-lg border border-white/20 text-xs font-bold uppercase tracking-widest hover:bg-white/10">Sign in to buy</button>` : `<button onclick="buyItem('${escapeHtml(it.ItemId)}')" class="px-5 py-2 rounded-lg bg-gradient-to-r from-red-700 to-orange-500 text-xs font-bold uppercase tracking-widest hover:brightness-110">Buy</button>`;
   return `<div class="cd p-5 flex flex-col h-full">
     <div class="relative h-28 rounded-lg mb-4 overflow-hidden flex items-center justify-center bg-gradient-to-br from-red-900/40 to-orange-900/30">${art}</div>
     <div class="font-bold leading-tight">${name}</div>
@@ -553,18 +553,18 @@ function storeSet(n){ storePage=n; renderStore(); document.getElementById("view-
 
 async function loadStore(force){
   const grid=$("storeGrid"), msg=$("storeMsg");
-  if(!loggedIn()){ grid.innerHTML=""; $("storePager").classList.add("hidden"); msg.innerHTML='Sign in to view the store. <button onclick="openAccount()" class="underline text-red-400">Sign in</button>'; return; }
+  // browsable while logged out — buying is gated in storeCard/buyItem below.
   if(storeLoaded && !force){ renderStore(); return; }
   msg.textContent="Loading store…"; grid.innerHTML="";
   try{
-    const data=await pfAuth("/Client/GetStoreItems",{ StoreId:CONFIG.playfabStoreId, CatalogVersion:CONFIG.playfabCatalog });
+    const data=await pfRead("/Client/GetStoreItems",{ StoreId:CONFIG.playfabStoreId, CatalogVersion:CONFIG.playfabCatalog });
     storeItems=data.Store||[];
     storeCat={};
     try{
-      const c=await pfAuth("/Client/GetCatalogItems",{ CatalogVersion:CONFIG.playfabCatalog });
+      const c=await pfRead("/Client/GetCatalogItems",{ CatalogVersion:CONFIG.playfabCatalog });
       (c.Catalog||[]).forEach(i=>storeCat[i.ItemId]=i);
     }catch{}
-    await loadWallet();
+    if(loggedIn()) await loadWallet(); else { ownedMap={}; $("walletBar").innerHTML=""; }
     if(!storeItems.length){ msg.textContent="No items in this store yet."; $("storePager").classList.add("hidden"); return; }
     msg.textContent="";
     storePage=0; renderStore();
@@ -659,7 +659,7 @@ async function doRegister(){
   try{ saved.account=await pfRegister(u,em,pw); persist(saved); await claimSession(); startSessionGuard(); $("regPass").value=""; renderAccount(); beep("login"); loadProfile(); refreshLive(); setTimeout(closeAccount,600); }
   catch(e){ loginError(friendlyAuthError(e)); beep("error"); } finally{ setAuthBusy(false); }
 }
-function doLogout(){ saved.account=null; persist(saved); storeLoaded=false; isAdmin=false; maintenance={on:false}; applyMaintenance(); if($("storeGrid")) $("storeGrid").innerHTML=""; renderAccount(); beep(); }
+function doLogout(){ saved.account=null; persist(saved); storeLoaded=false; isAdmin=false; maintenance={on:false}; applyMaintenance(); if($("storeGrid")) $("storeGrid").innerHTML=""; renderAccount(); beep(); loadStore(true); }
 
 
 async function loadProfile(){
@@ -1359,6 +1359,30 @@ initMusic();
 showTab("play");
 renderAccount(); applyState(); tick(); startRecheck(); refreshLive(); startLivePoll(); startSessionGuard();
 loadGithubNews(); setInterval(loadGithubNews, 30000);   // GitHub news for everyone, refreshed periodically
+
+// ---- guest session: anonymous PlayFab login so logged-out visitors can
+//      browse live store items/prices. Buying still requires a real account.
+var _guestTicket=null, _guestPending=null;
+async function ensureGuest(){
+  if(_guestTicket) return _guestTicket;
+  if(_guestPending) return _guestPending;
+  let gid=saved.guestId;
+  if(!gid){ gid="gnd_guest_"+Math.random().toString(36).slice(2)+Date.now().toString(36); saved.guestId=gid; persist(saved); }
+  _guestPending=pfPost("/Client/LoginWithCustomID",{TitleId:CONFIG.playfabTitleId,CustomId:gid,CreateAccount:true})
+    .then(d=>{ _guestTicket=d.SessionTicket; return _guestTicket; })
+    .finally(()=>{ _guestPending=null; });
+  return _guestPending;
+}
+async function readTicket(){ return (saved.account&&saved.account.ticket) ? saved.account.ticket : ensureGuest(); }
+async function pfRead(path, body){
+  const ticket=await readTicket();
+  const r=await fetch(pfBase()+path,{ method:"POST",
+    headers:{"Content-Type":"application/json","X-Authorization":ticket},
+    body:JSON.stringify(body||{}) });
+  let d={}; try{ d=await r.json(); }catch{}
+  if(!r.ok || d.code!==200) throw new Error(d.errorMessage || d.error || ("HTTP "+r.status));
+  return d.data;
+}
 </script>
 </body>
 </html>
