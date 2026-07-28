@@ -508,9 +508,9 @@ function storeCard(it){
   const desc=escapeHtml(c.Description||"");
   const price=priceText(it.VirtualCurrencyPrices);
   const img=c.ItemImageUrl||c.ItemImageUri||"";
-  // With an image: fill the whole panel edge-to-edge (no gradient showing through).
+  // With an image: show the whole artwork (no cropping); gradient frames any gap.
   const art = img
-    ? `<img src="${escapeHtml(img)}" alt="" loading="lazy" class="absolute inset-0 w-full h-full object-cover"
+    ? `<img src="${escapeHtml(img)}" alt="" loading="lazy" class="absolute inset-0 w-full h-full object-contain"
            onerror="this.remove()">`
     : `<span class="text-3xl opacity-60">🐉</span>`;
   const cd=cooldownLeft(it.ItemId);
@@ -522,7 +522,7 @@ function storeCard(it){
     : !loggedIn()
     ? `<button onclick="openAccount()" class="px-5 py-2 rounded-lg border border-white/20 text-xs font-bold uppercase tracking-widest hover:bg-white/10">Sign in to buy</button>` : `<button onclick="buyItem('${escapeHtml(it.ItemId)}')" class="px-5 py-2 rounded-lg bg-gradient-to-r from-red-700 to-orange-500 text-xs font-bold uppercase tracking-widest hover:brightness-110">Buy</button>`;
   return `<div class="cd p-5 flex flex-col h-full">
-    <div class="relative h-28 rounded-lg mb-4 overflow-hidden flex items-center justify-center bg-gradient-to-br from-red-900/40 to-orange-900/30">${art}</div>
+    <div class="relative h-48 rounded-lg mb-4 overflow-hidden flex items-center justify-center bg-gradient-to-br from-red-900/40 to-orange-900/30">${art}</div>
     <div class="font-bold leading-tight">${name}</div>
     <div class="text-gray-400 text-sm mt-1 mb-3 flex-1">${desc}</div>
     <div class="flex items-center justify-between gap-3 mt-auto">
