@@ -768,7 +768,8 @@ async function loadGithubNews(){
 }
 // Rebuild the whole news.html page (viewable + embedded JSON) from a news array.
 function buildNewsHtml(news){
-  const json=JSON.stringify(news||[],null,2);
+  // Escape "<" so a "</script>" inside any news text can't close the data block.
+  const json=JSON.stringify(news||[],null,2).replace(/</g,"\\u003c");
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
