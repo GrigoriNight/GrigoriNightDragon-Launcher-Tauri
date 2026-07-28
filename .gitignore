@@ -1,1 +1,9 @@
 node_modules/
+
+# Runtime-downloaded game payload — delivered via GitHub Releases, not the repo.
+game/
+
+# build_web.py intermediate artifacts (regenerated on every build).
+src/.jsbody.js
+src/.prefix.html
+src/.prefix.min.html
