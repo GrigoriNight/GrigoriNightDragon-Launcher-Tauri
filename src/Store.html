@@ -84,13 +84,13 @@
       <div id="formLogin" class="space-y-3">
         <input id="loginId" class="field" placeholder="Email or username"/>
         <input id="loginPass" type="password" class="field" placeholder="Password"/>
-        <button id="loginBtn" onclick="doLogin()" class="w-full bg-gradient-to-r from-red-700 to-orange-500 py-2.5 rounded-lg font-bold uppercase tracking-widest hover:brightness-110 disabled:opacity-50">Log in</button>
+        <button id="loginBtn" onclick="doLogin()" class="w-full bg-gradient-to-r from-red-700 to-orange-500 py-2.5 rounded-lg font-bold uppercase tracking-widest hover:brightness-110 disabled:opac[...]</button>
       </div>
       <div id="formRegister" class="space-y-3 hidden">
         <input id="regUser" class="field" placeholder="Username (3–20 characters)"/>
         <input id="regEmail" type="email" class="field" placeholder="Email"/>
         <input id="regPass" type="password" class="field" placeholder="Password (min 6 characters)"/>
-        <button id="registerBtn" onclick="doRegister()" class="w-full bg-gradient-to-r from-red-700 to-orange-500 py-2.5 rounded-lg font-bold uppercase tracking-widest hover:brightness-110 disabled:opacity-50">Create account</button>
+        <button id="registerBtn" onclick="doRegister()" class="w-full bg-gradient-to-r from-red-700 to-orange-500 py-2.5 rounded-lg font-bold uppercase tracking-widest hover:brightness-110 disable[...]</button>
       </div>
       <div id="loginError" class="text-red-400 text-xs mt-3 hidden"></div>
     </div>
@@ -108,7 +108,7 @@
       <input id="pf_email" type="email" class="field" placeholder="you@example.com"/>
       <label class="text-xs text-gray-400">Avatar image URL</label>
       <input id="pf_avatar" class="field" placeholder="https://.../avatar.png"/>
-      <button onclick="saveProfile()" class="mt-3 w-full bg-gradient-to-r from-red-700 to-orange-500 py-2.5 rounded-lg font-bold uppercase tracking-widest text-sm hover:brightness-110">Save profile</button>
+      <button onclick="saveProfile()" class="mt-3 w-full bg-gradient-to-r from-red-700 to-orange-500 py-2.5 rounded-lg font-bold uppercase tracking-widest text-sm hover:brightness-110">Save profi[...]</button>
       <button onclick="doLogout()" class="mt-2 w-full ob py-2.5 text-sm uppercase tracking-widest">Log out</button>
       <div id="pfMsg" class="text-xs text-amber-400 mt-2"></div>
     </div>
@@ -170,7 +170,7 @@ let saved = Object.assign({}, PREF_DEFAULTS, loadPrefs());
 
 function loggedIn(){ return !!saved.account; }
 function acctLabel(){ return (saved.account && (saved.account.display || saved.account.name)) || "Account"; }
-function escapeHtml(s){ return String(s).replace(/[&<>"']/g,c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
+function escapeHtml(s){ return String(s).replace(/[&<>\"']/g,c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c])); }
 
 // ---- sound (purchase feedback) -----------------------------------------
 let audioCtx=null;
@@ -253,7 +253,7 @@ function storeCard(it){
   const price=priceText(it.VirtualCurrencyPrices);
   const img=c.ItemImageUrl||c.ItemImageUri||"";
   const art = img
-    ? `<img src="${escapeHtml(img)}" alt="" loading="lazy" class="absolute inset-0 w-full h-full object-cover" onerror="this.remove()">`
+    ? `<img src="${escapeHtml(img)}" alt="" loading="lazy" class="absolute inset-0 w-full h-full object-cover" style="object-position:50% 65%;" onerror="this.remove()">`
     : `<span class="text-3xl opacity-60">🐉</span>`;
   const cd=cooldownLeft(it.ItemId);
   const btn = maintLock()
@@ -264,7 +264,7 @@ function storeCard(it){
     : `<button onclick="buyItem('${escapeHtml(it.ItemId)}')"
          class="px-5 py-2 rounded-lg bg-gradient-to-r from-red-700 to-orange-500 text-xs font-bold uppercase tracking-widest hover:brightness-110">Buy</button>`;
   return `<div class="cd p-5 flex flex-col h-full">
-    <div class="relative h-28 rounded-lg mb-4 overflow-hidden flex items-center justify-center bg-gradient-to-br from-red-900/40 to-orange-900/30">${art}</div>
+    <div class="relative h-36 rounded-lg mb-4 overflow-hidden flex items-center justify-center bg-gradient-to-br from-red-900/40 to-orange-900/30">${art}</div>
     <div class="font-bold leading-tight">${name}</div>
     <div class="text-gray-400 text-sm mt-1 mb-3 flex-1">${desc}</div>
     <div class="flex items-center justify-between gap-3 mt-auto">
@@ -287,7 +287,7 @@ function renderStore(){
   $("pageNext").disabled = storePage===pages-1;
   let nums="";
   for(let i=0;i<pages;i++){
-    nums += `<button onclick="storeSet(${i})" class="w-8 h-8 rounded-lg text-sm ${i===storePage?'bg-gradient-to-r from-red-700 to-orange-500 font-bold':'border border-white/10 hover:bg-white/10'}">${i+1}</button>`;
+    nums += `<button onclick="storeSet(${i})" class="w-8 h-8 rounded-lg text-sm ${i===storePage?'bg-gradient-to-r from-red-700 to-orange-500 font-bold':'border border-white/10 hover:bg-white/10'}[...]`;
   }
   $("pageNums").innerHTML=nums;
 }
@@ -296,7 +296,7 @@ function storeSet(n){ storePage=n; renderStore(); $("view-store").scrollTop=0; }
 
 async function loadStore(force){
   const grid=$("storeGrid"), msg=$("storeMsg");
-  if(!loggedIn()){ grid.innerHTML=""; $("storePager").classList.add("hidden"); msg.innerHTML='Sign in to view the store. <button onclick="openAccount()" class="underline text-red-400">Sign in</button>'; return; }
+  if(!loggedIn()){ grid.innerHTML=""; $("storePager").classList.add("hidden"); msg.innerHTML='Sign in to view the store. <button onclick="openAccount()" class="underline text-red-400">Sign in</button>[...]';
   if(storeLoaded && !force){ renderStore(); return; }
   msg.textContent="Loading store…"; grid.innerHTML="";
   try{
@@ -405,7 +405,7 @@ async function doRegister(){
   try{ saved.account=await pfRegister(u,em,pw); persist(saved); $("regPass").value=""; renderAccount(); beep("login"); loadProfile(); afterAuth(); setTimeout(closeAccount,600); }
   catch(e){ loginError(friendlyAuthError(e)); beep("error"); } finally{ setAuthBusy(false); }
 }
-function doLogout(){ saved.account=null; persist(saved); storeLoaded=false; maintenance={on:false}; applyMaintenance(); $("storeGrid").innerHTML=""; $("walletBar").innerHTML=""; renderAccount(); loadStore(); beep(); }
+function doLogout(){ saved.account=null; persist(saved); storeLoaded=false; maintenance={on:false}; applyMaintenance(); $("storeGrid").innerHTML=""; $("walletBar").innerHTML=""; renderAccount(); [...]
 
 function afterAuth(){ loadStore(true); refreshLive(); }
 
