@@ -15,6 +15,11 @@ tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
+# Desktop-only: game downloader + unzip. Kept out of Android builds.
+[target.'cfg(not(target_os = "android"))'.dependencies]
+ureq = "2"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
 [profile.release]
 panic = "abort"
 codegen-units = 1

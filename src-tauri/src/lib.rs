@@ -3,6 +3,8 @@ use serde::Deserialize;
 use std::path::PathBuf;
 #[cfg(not(target_os = "android"))]
 use std::process::Command;
+#[cfg(not(target_os = "android"))]
+use std::io::Read;
 use tauri::Manager;
 
 #[derive(Deserialize)]
@@ -29,8 +31,12 @@ struct UpdatePayload {
 
 #[cfg(not(target_os = "android"))]
 fn resolve_exe(app: &tauri::AppHandle, exe_name: &str) -> Option<PathBuf> {
-    let name = if exe_name.is_empty() { "GrigoriNightDragon.exe" } else { exe_name };
+    let name = if exe_name.is_empty() { "GameLauncher.exe" } else { exe_name };
     let mut candidates: Vec<PathBuf> = Vec::new();
+    // Where download_game unzips the game — checked first so Play finds it.
+    if let Ok(data) = app.path().app_local_data_dir() {
+        candidates.push(data.join("game").join(name));
+    }
     if let Ok(res) = app.path().resource_dir() {
         candidates.push(res.join("game").join(name));
         candidates.push(res.join(name));
@@ -52,7 +58,7 @@ fn launch_game(app: tauri::AppHandle, payload: LaunchPayload) -> Result<(), Stri
     #[cfg(not(target_os = "android"))]
     {
         let exe = resolve_exe(&app, &payload.exe)
-            .ok_or_else(|| format!("Couldn't find {} — put it in the launcher's `game` folder.", if payload.exe.is_empty() { "GrigoriNightDragon.exe" } else { &payload.exe }))?;
+            .ok_or_else(|| format!("Couldn't find {} — install the game first.", if payload.exe.is_empty() { "GameLauncher.exe" } else { &payload.exe }))?;
         let workdir = exe.parent().map(|p| p.to_path_buf());
         let mut cmd = Command::new(&exe);
         cmd.env("GND_TITLE_ID", &payload.title_id)
@@ -102,6 +108,52 @@ fn self_update(_app: tauri::AppHandle, payload: UpdatePayload) -> Result<(), Str
     }
 }
 
+/// Download the game zip and unzip it into the launcher's own writable data
+/// folder (app_local_data_dir/game). resolve_exe checks that same folder first,
+/// so Play always finds what Install downloaded.
+#[tauri::command]
+fn download_game(app: tauri::AppHandle, payload: UpdatePayload) -> Result<String, String> {
+    #[cfg(target_os = "android")]
+    return Err("Game download is not supported on Android.".into());
+
+    #[cfg(not(target_os = "android"))]
+    {
+        if payload.url.is_empty() { return Err("No download URL provided.".into()); }
+        let dest = app
+            .path()
+            .app_local_data_dir()
+            .map_err(|e| e.to_string())?
+            .join("game");
+        std::fs::create_dir_all(&dest).map_err(|e| e.to_string())?;
+
+        // ureq follows GitHub's redirect to the release CDN; read fully (~3MB today).
+        let resp = ureq::get(&payload.url).call().map_err(|e| e.to_string())?;
+        let mut bytes = Vec::new();
+        resp.into_reader().read_to_end(&mut bytes).map_err(|e| e.to_string())?;
+
+        // Unzip into dest, overwriting. enclosed_name() blocks path traversal.
+        let mut archive = zip::ZipArchive::new(std::io::Cursor::new(bytes))
+            .map_err(|e| e.to_string())?;
+        for i in 0..archive.len() {
+            let mut entry = archive.by_index(i).map_err(|e| e.to_string())?;
+            let out = match entry.enclosed_name() {
+                Some(p) => dest.join(p),
+                None => continue,
+            };
+            if entry.is_dir() {
+                std::fs::create_dir_all(&out).ok();
+            } else {
+                if let Some(parent) = out.parent() {
+                    std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+                }
+                let mut w = std::fs::File::create(&out).map_err(|e| e.to_string())?;
+                std::io::copy(&mut entry, &mut w).map_err(|e| e.to_string())?;
+            }
+        }
+        Ok(dest.to_string_lossy().into_owned())
+    }
+}
+
 #[cfg(not(target_os = "android"))]
 fn open_url(url: &str) -> Result<(), String> {
     #[cfg(target_os = "windows")]
@@ -120,7 +172,8 @@ pub fn run() {
             launch_game,
             hide_launcher,
             show_launcher,
-            self_update
+            self_update,
+            download_game
         ])
         .run(tauri::generate_context!())
         .expect("error while running GrigoriNightDragon Launcher");

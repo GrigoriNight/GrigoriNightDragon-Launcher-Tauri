@@ -2,7 +2,7 @@ import re, subprocess, sys
 
 lines = open('Launcher.html', encoding='utf-8').read().split('\n')  # 0-indexed list
 
-# ---- 1) JS surgery: replace desktop download/self-update engine (orig lines 943..1223)
+# ---- 1) JS surgery: replace desktop download/self-update engine (formatting..startRecheck)
 #         with tiny no-op stubs for the few functions still called by kept UI code.
 stubs = (
 "// ---- desktop engine removed for web build; stubs keep the web UI wired -----\n"
@@ -20,12 +20,12 @@ stubs = (
 )
 
 # Apply edits bottom-to-top so earlier line numbers stay valid.
-# handleError (orig 1243..1249) is only called by the removed engine -> drop it.
-del lines[1242:1250]              # 1243..1250 inclusive (blank + handleError, 0-idx 1242..1249)
-# engine block 943..1223 -> stubs
-lines[942:1223] = [stubs]         # replace 0-idx 942..1222
-# updateFace self-update overlay (orig 156..170) -> gone
-del lines[155:170]                # 0-idx 155..169
+# handleError (blank + fn) is only called by the removed engine -> drop it.
+del lines[1261:1269]              # blank + handleError (0-idx 1261..1268)
+# engine block (formatting .. startRecheck) -> stubs
+lines[943:1242] = [stubs]         # replace 0-idx 943..1241
+# updateFace self-update overlay -> gone
+del lines[156:171]                # blank + overlay (0-idx 156..170)
 # Play action card (orig 75..93: progress bar + install/play/update/repair/cancel) -> CTA
 cta = (
 '    <div class="max-w-3xl">\n'
@@ -35,12 +35,13 @@ cta = (
 '      <p class="text-xs text-gray-400 mt-3">Get the desktop launcher to install and play the game.</p>\n'
 '    </div>'
 )
-lines[74:93] = [cta]              # 0-idx 74..92
+lines[75:94] = [cta]              # 0-idx 75..93
 
 s = '\n'.join(lines)
 
 # ---- 2) strip full-document wrapper so it injects inside GoDaddy's <body>,
 #         and box the app to a fixed height instead of full-screen.
+s = s.replace('<script src="bridge.js"></script>', '')   # desktop-only bridge; would 404 on web
 s = s.replace('<!DOCTYPE html>', '')
 s = re.sub(r'<html[^>]*>', '', s, count=1)
 s = s.replace('</html>', '')

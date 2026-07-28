@@ -29,4 +29,9 @@
   window.__GND_SELF_UPDATE__ = function (payload) {
     return invoke("self_update", { payload: payload });
   };
+
+  // Download + unzip the game into the launcher's own data folder (Rust side)
+  window.__GND_DOWNLOAD__ = function (payload) {
+    return invoke("download_game", { payload: payload });
+  };
 })();

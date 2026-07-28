@@ -7,6 +7,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
+<script src="bridge.js"></script>
 <style>
   .stage { background: radial-gradient(circle at 70% 25%, #3a0d0d 0%, #140606 45%, #050505 100%), #000; }
   @keyframes slide { from { background-position: 0 0; } to { background-position: 40px 0; } }
@@ -345,7 +346,7 @@ const CONFIG = {
   emailjsService:   "service_cgr7tvo",      // EmailJS service ID
   emailjsTemplate:  "template_by4ls5g",      // EmailJS template ID
   launcherUrl: "https://github.com/GrigoriNight/GrigoriNightDragon-Launcher-Tauri/releases/download/latest-build/GrigoriNightDragon-Setup.exe",   // direct URL to the launcher update file; downloaded with live progress when launcherVersion changes
-  gameExe: "GrigoriNightDragon.exe",   // executable the desktop shell launches on Play
+  gameExe: "GameLauncher.exe",   // executable the desktop shell launches on Play
   musicUrl: "https://img1.wsimg.com/blobby/go/4eb53488-7334-42b7-9c77-28becd180ebc/downloads/4cffe538-dcd7-40bf-8cc7-2a6667083f69/Untitled%20(3).mp3?ver=1784667822476"   // background music track
 };
 const LAUNCHER_VERSION = "1.0.0";   // bump this when you deploy a new launcher build
@@ -1110,6 +1111,24 @@ async function startDownload(label="Downloading game files"){
   if(!loggedIn()){ beep("error"); openAccount(); loginError("Sign in to install."); return; }
   beep();
   setBusy(true); $("modeText").innerText=label; $("stats").innerText="Connecting…"; $("bar").style.width="0%"; $("percent").innerText="0%";
+
+  // Desktop app: Rust downloads + unzips into a folder the launcher owns, so
+  // Play can find the game afterwards. (No browser folder-picker needed.)
+  if(window.__GND_DOWNLOAD__){
+    try{
+      $("bar").classList.add("indeterminate"); $("stats").innerText="Downloading & installing…";
+      await window.__GND_DOWNLOAD__({ url: CONFIG.gameUrl });
+      try{ const m=await getManifest(); saved.installedVersion=m.version||"installed"; latestVersion=m.version||latestVersion; }
+      catch{ saved.installedVersion=saved.installedVersion||"installed"; }
+      persist(saved);
+      $("bar").classList.remove("indeterminate"); $("bar").style.width="100%"; $("percent").innerText="100%";
+      $("modeText").innerText="Installed"; $("stats").innerText="Game installed. Ready to play.";
+    }catch(err){
+      $("bar").classList.remove("indeterminate");
+      $("modeText").innerText="Install failed"; $("stats").innerText=(err&&err.message)||"Download error";
+    }finally{ setBusy(false); applyState(); }
+    return;
+  }
 
   // Auto-install needs a folder handle (Chrome/Edge desktop) + the unzip lib.
   if(!window.showDirectoryPicker || typeof fflate==="undefined"){
