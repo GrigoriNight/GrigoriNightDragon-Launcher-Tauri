@@ -868,12 +868,13 @@ function applyMaintenance(){
   if(storeLoaded) renderStore();
 }
 
-function openAdmin(){
+async function openAdmin(){
   if(!isAdmin) return;
   beep();
   $("mt_on").checked=!!maintenance.on;
   $("mt_title").value=maintenance.title||"";
   $("mt_msg").value=maintenance.message||"";
+  await loadGithubNews();
   const ln=$("liveNow");
   if(ln) ln.innerHTML = (liveNews&&liveNews.length)
     ? "Live now ("+liveNews.length+"): "+liveNews.map(n=>escapeHtml(n.title||"untitled")).join(" | ")
