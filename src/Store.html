@@ -277,7 +277,7 @@ function storeCard(it){
   const price=priceText(it.VirtualCurrencyPrices);
   const img=c.ItemImageUrl||c.ItemImageUri||"";
   const art = img
-    ? `<img src="${escapeHtml(img)}" alt="" loading="lazy" class="absolute inset-0 w-full h-full object-contain" onerror="this.remove()">`
+    ? `<img src="${escapeHtml(img)}" alt="" loading="lazy" class="absolute inset-0 w-full h-full object-fill" onerror="this.remove()">`
     : `<span class="text-3xl opacity-60">🐉</span>`;
   const cd=cooldownLeft(it.ItemId);
   const btn = maintLock()
