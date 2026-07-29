@@ -268,7 +268,18 @@ function priceText(prices){
 
 // ---- store --------------------------------------------------------------
 let storeLoaded=false, storeItems=[], storeCat={}, storePage=0;
+let limitedItems=[], limitedOwnedSet={};
 const STORE_PER_PAGE=6;
+
+// An item is Limited Edition if it's in the admin Title-Data list OR its
+// catalog CustomData is {"limited":true}. CustomData arrives as a JSON string.
+function isLimited(it){
+  if(limitedItems.indexOf(it.ItemId)>=0) return true;
+  const meta=storeCat[it.ItemId]||{};
+  const raw=meta.CustomData;
+  if(raw){ try{ const d=(typeof raw==="string")?JSON.parse(raw):raw; if(d&&d.limited) return true; }catch(e){} }
+  return false;
+}
 
 function storeCard(it){
   const c=storeCat[it.ItemId]||{};
@@ -280,8 +291,13 @@ function storeCard(it){
     ? `<img src="${escapeHtml(img)}" alt="" loading="lazy" class="absolute inset-0 w-full h-full object-fill" onerror="this.remove()">`
     : `<span class="text-3xl opacity-60">🐉</span>`;
   const cd=cooldownLeft(it.ItemId);
+  const lim=isLimited(it);
+  const limOwned=lim && !!limitedOwnedSet[it.ItemId];
   const btn = maintLock()
     ? `<button disabled class="px-4 py-2 rounded-lg bg-white/10 text-gray-500 text-xs font-bold uppercase tracking-widest cursor-not-allowed">Closed</button>`
+    : limOwned
+    ? `<button disabled title="Limited Edition — one per account. You own it."
+         class="px-4 py-2 rounded-lg bg-white/10 text-amber-300 text-xs font-bold uppercase tracking-widest cursor-not-allowed">Owned</button>`
     : cd>0
     ? `<button disabled title="Already owned — available again in ${cooldownLabel(cd)}"
          class="px-4 py-2 rounded-lg bg-white/10 text-gray-400 text-xs font-bold uppercase tracking-widest cursor-not-allowed">Owned · ${cooldownLabel(cd)}</button>`
@@ -291,7 +307,7 @@ function storeCard(it){
     : `<button onclick="buyItem('${escapeHtml(it.ItemId)}')"
          class="px-5 py-2 rounded-lg bg-gradient-to-r from-red-700 to-orange-500 text-xs font-bold uppercase tracking-widest hover:brightness-110">Buy</button>`;
   return `<div class="cd p-5 flex flex-col h-full">
-    <div class="relative h-48 rounded-lg mb-4 overflow-hidden flex items-center justify-center bg-gradient-to-br from-red-900/40 to-orange-900/30">${art}</div>
+    <div class="relative h-48 rounded-lg mb-4 overflow-hidden flex items-center justify-center bg-gradient-to-br from-red-900/40 to-orange-900/30">${lim?`<span class="absolute top-2 left-2 z-10 px-2 py-0.5 rounded-md bg-gradient-to-r from-amber-500 to-yellow-300 text-black text-[10px] font-bold uppercase tracking-wider shadow">Limited Edition</span>`:""}${art}</div>
     <div class="font-bold leading-tight">${name}</div>
     <div class="text-gray-400 text-sm mt-1 mb-3 flex-1">${desc}</div>
     <div class="flex items-center justify-between gap-3 mt-auto">
@@ -333,7 +349,7 @@ async function loadStore(force){
       const c=await pfRead("/Client/GetCatalogItems",{ CatalogVersion:CONFIG.playfabCatalog });
       (c.Catalog||[]).forEach(i=>storeCat[i.ItemId]=i);
     }catch{}
-    if(loggedIn()) await loadWallet(); else { ownedMap={}; $("walletBar").innerHTML=""; }
+    if(loggedIn()) await loadWallet(); else { ownedMap={}; limitedOwnedSet={}; $("walletBar").innerHTML=""; }
     if(!storeItems.length){ msg.textContent="No items in this store yet."; $("storePager").classList.add("hidden"); return; }
     msg.textContent="";
     storePage=0; renderStore();
@@ -369,6 +385,13 @@ async function loadWallet(){
       const t=i.PurchaseDate? Date.parse(i.PurchaseDate) : 0;
       if(!ownedMap[i.ItemId] || t>ownedMap[i.ItemId]) ownedMap[i.ItemId]=t;
     });
+    limitedOwnedSet={};
+    try{
+      const ro=await pfAuth("/Client/GetUserReadOnlyData",{ Keys:["limitedOwned"] });
+      const raw=ro&&ro.Data&&ro.Data.limitedOwned&&ro.Data.limitedOwned.Value;
+      const arr=raw?JSON.parse(raw):[];
+      (arr instanceof Array?arr:[]).forEach(id=>limitedOwnedSet[id]=true);
+    }catch{}
   }catch{}
 }
 
@@ -397,6 +420,7 @@ async function buyItem(itemId){
     const r=data.FunctionResult||{};
     if(r.success){ msg.textContent="Purchased ✔"; beep("login"); }
     else if(r.reason==="maintenance"){ msg.textContent="The store is closed during maintenance."; beep("error"); }
+    else if(r.reason==="limited"){ msg.textContent="This is a Limited Edition — one per account, and you already own it."; beep("error"); }
     else if(r.reason==="cooldown"){ msg.textContent="You already own this — you can buy it again in "+(r.daysRemaining||0)+" day(s)."; beep("error"); }
     else if(r.reason==="insufficient"){ msg.innerHTML="Not enough coins. You have "+fmtCoins(r.haveCopper||0)+", price is "+fmtCoins(r.priceCopper||0)+"."; beep("error"); }
     else { msg.textContent="Purchase failed."; beep("error"); }
@@ -431,7 +455,7 @@ async function doRegister(){
   try{ saved.account=await pfRegister(u,em,pw); persist(saved); $("regPass").value=""; renderAccount(); beep("login"); loadProfile(); afterAuth(); setTimeout(closeAccount,600); }
   catch(e){ loginError(friendlyAuthError(e)); beep("error"); } finally{ setAuthBusy(false); }
 }
-function doLogout(){ saved.account=null; persist(saved); storeLoaded=false; maintenance={on:false}; applyMaintenance(); $("walletBar").innerHTML=""; ownedMap={}; renderAccount(); beep(); loadStore(true); refreshLive(); }
+function doLogout(){ saved.account=null; persist(saved); storeLoaded=false; maintenance={on:false}; applyMaintenance(); $("walletBar").innerHTML=""; ownedMap={}; limitedOwnedSet={}; renderAccount(); beep(); loadStore(true); refreshLive(); }
 
 function afterAuth(){ loadStore(true); refreshLive(); }
 
@@ -481,9 +505,11 @@ function renderAccount(){
 let maintenance={on:false};
 async function refreshLive(){
   try{
-    const td=await pfRead("/Client/GetTitleData",{ Keys:["maintenance"] });
+    const td=await pfRead("/Client/GetTitleData",{ Keys:["maintenance","limitedItems"] });
     const d=(td&&td.Data)||{};
     try{ maintenance = d.maintenance ? JSON.parse(d.maintenance) : {on:false}; }catch{ maintenance={on:false}; }
+    try{ limitedItems = d.limitedItems ? JSON.parse(d.limitedItems) : []; }catch{ limitedItems=[]; }
+    if(!(limitedItems instanceof Array)) limitedItems=[];
   }catch{ maintenance={on:false}; }
   applyMaintenance();
 }

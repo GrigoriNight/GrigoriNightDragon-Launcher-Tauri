@@ -19,11 +19,26 @@ stubs = (
 "function cancelDownload(){}\n"
 )
 
+# ---- locate the two lower edit regions by MARKER, not hard-coded line numbers:
+#      store/admin code added above them shifts these anchors (and by different
+#      amounts, since pollLive sits between the engine block and handleError).
+#      The two TOP regions (overlay, Play card) are untouched by those edits and
+#      stay numeric.
+def _find(pred, desc):
+    for i, ln in enumerate(lines):
+        if pred(ln): return i
+    sys.exit('build_web: could not locate ' + desc)
+eng_start = _find(lambda l: l.startswith('// ---- formatting'), 'engine block start (// ---- formatting)')
+eng_end   = _find(lambda l: l.startswith('function startRecheck('), 'engine block end (startRecheck)')
+he_fn     = _find(lambda l: l.startswith('function handleError('), 'handleError')
+he_end    = next((j for j in range(he_fn, len(lines)) if lines[j] == '}'), -1)
+if he_end < 0: sys.exit('build_web: could not find end of handleError')
+
 # Apply edits bottom-to-top so earlier line numbers stay valid.
 # handleError (blank + fn) is only called by the removed engine -> drop it.
-del lines[1261:1269]              # blank + handleError (0-idx 1261..1268)
+del lines[he_fn-1 : he_end+1]     # blank + handleError fn
 # engine block (formatting .. startRecheck) -> stubs
-lines[943:1242] = [stubs]         # replace 0-idx 943..1241
+lines[eng_start : eng_end+1] = [stubs]
 # updateFace self-update overlay -> gone
 del lines[156:171]                # blank + overlay (0-idx 156..170)
 # Play action card (orig 75..93: progress bar + install/play/update/repair/cancel) -> CTA
