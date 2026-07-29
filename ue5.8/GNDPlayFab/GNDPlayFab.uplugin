@@ -1,0 +1,25 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "GND PlayFab",
+	"Description": "PlayFab login, logout, and store fetch for GrigoriNightDragon. Built for Unreal Engine 5.8. Drop this folder into <YourProject>/Plugins/, regenerate project files, and enable the plugin.",
+	"Category": "Online",
+	"CreatedBy": "GrigoriNight",
+	"CreatedByURL": "",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"EngineVersion": "5.8.0",
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "GNDPlayFab",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}

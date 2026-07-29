@@ -140,7 +140,13 @@
         <button onclick="openBugReport()"
           class="mt-3 px-4 py-2 bg-gradient-to-r from-red-700 to-orange-500 rounded-lg text-sm font-bold uppercase tracking-widest hover:brightness-110">🐞 Report a bug</button>
       </div>
-      <div class="text-xs text-gray-600">Reports go to GrigoriNightDragon@gmail.com</div>
+      <div class="cd p-5">
+        <div class="font-bold">Banned by mistake?</div>
+        <p class="text-gray-400 text-sm mt-1">Think your account was banned in error? Send us an appeal and we'll review it.</p>
+        <button onclick="openBanAppeal()"
+          class="mt-3 px-4 py-2 border border-amber-500/40 text-amber-300 rounded-lg text-sm font-bold uppercase tracking-widest hover:bg-amber-500/10">⚖️ Appeal a ban</button>
+      </div>
+      <div class="text-xs text-gray-600">Reports and appeals go to GrigoriNightDragon@gmail.com</div>
     </div>
   </div>
 
@@ -310,14 +316,6 @@
     </div>
     <p class="text-xs text-gray-400 mb-3">Help us find and fix problems. Fields marked * are required.</p>
     <div class="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
-      <div>
-        <label class="text-xs text-gray-400">What is this about? *</label>
-        <div class="flex gap-2 mt-1">
-          <button type="button" id="bugTargetGame" onclick="setBugTarget('game')" class="flex-1 py-2 rounded-lg text-xs uppercase tracking-widest bg-white/10">Game</button>
-          <button type="button" id="bugTargetLauncher" onclick="setBugTarget('launcher')" class="flex-1 py-2 rounded-lg text-xs uppercase tracking-widest border border-white/10">Launcher</button>
-        </div>
-        <p id="bugTargetHint" class="text-[10px] text-gray-500 mt-1">Game bugs require sign-in. Launcher bugs can be sent anonymously.</p>
-      </div>
       <div class="grid grid-cols-2 gap-3">
         <div><label class="text-xs text-gray-400">In-game username</label>
           <input id="bugUser" class="field opacity-60 cursor-not-allowed" readonly tabindex="-1" placeholder="auto-detected"/></div>
@@ -347,6 +345,35 @@
       <button onclick="copyBugReport()" class="px-5 border border-white/10 rounded-lg text-sm hover:bg-white/10">Copy</button>
     </div>
     <div id="bugMsg" class="text-xs text-amber-400 mt-3"></div>
+  </div>
+</div>
+
+<div id="banModal" class="hidden flex mdl">
+  <div class="mdc max-w-md">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-xl font-bold uppercase tracking-widest">Appeal a Ban</h2>
+      <button onclick="closeBanAppeal()" class="xb">&times;</button>
+    </div>
+    <p class="text-xs text-gray-400 mb-3">Banned by mistake? Tell us about your account and why it should be lifted. You don't need to be signed in. Fields marked * are required.</p>
+    <div class="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="text-xs text-gray-400">Account username *</label>
+          <input id="banUser" class="field" maxlength="120" placeholder="Your account name"/></div>
+        <div><label class="text-xs text-gray-400">Account email *</label>
+          <input id="banEmail" type="email" class="field" maxlength="160" placeholder="Email on the account"/></div>
+      </div>
+      <div><label class="text-xs text-gray-400">When were you banned?</label>
+        <input id="banWhen" class="field" maxlength="120" placeholder="e.g. yesterday, last week (optional)"/></div>
+      <div><label class="text-xs text-gray-400">Ban reason shown (if any)</label>
+        <input id="banReason" class="field" maxlength="200" placeholder="What did the ban message say? (optional)"/></div>
+      <div><label class="text-xs text-gray-400">Why should the ban be lifted? *</label>
+        <textarea id="banText" rows="4" class="field" style="resize:vertical" placeholder="Explain your side — be honest and specific…"></textarea></div>
+    </div>
+    <div class="flex gap-3 mt-4">
+      <button onclick="sendBanAppeal()" class="flex-1 bg-gradient-to-r from-amber-600 to-yellow-500 py-2.5 rounded-lg font-bold uppercase tracking-widest hover:brightness-110 text-black">Send appeal</button>
+      <button onclick="copyBanAppeal()" class="px-5 border border-white/10 rounded-lg text-sm hover:bg-white/10">Copy</button>
+    </div>
+    <div id="banMsg" class="text-xs text-amber-400 mt-3"></div>
   </div>
 </div>
 
@@ -1452,28 +1479,17 @@ async function startSessionGuard(){
 }
 
 // ---- bug report (EmailJS) -----------------------------------------------
-let bugTarget="game", bugCrashLog="";
-function setBugTarget(t){
-  bugTarget = (t==="launcher") ? "launcher" : "game";
-  const g=$("bugTargetGame"), l=$("bugTargetLauncher"), base="flex-1 py-2 rounded-lg text-xs uppercase tracking-widest ";
-  if(g) g.className=base+(bugTarget==="game"?"bg-white/10":"border border-white/10");
-  if(l) l.className=base+(bugTarget==="launcher"?"bg-white/10":"border border-white/10");
+let bugCrashLog="";
+function fillBugFields(){
   const acct = saved.account ? acctLabel() : "";
-  if(bugTarget==="launcher"){
-    $("bugUser").value = acct || "anonymous";
-    $("bugVer").value  = "Launcher v"+LAUNCHER_VERSION;
-    if($("bugTargetHint")) $("bugTargetHint").textContent="Launcher bug — you can send this without signing in.";
-  } else {
-    $("bugUser").value = acct || "not signed in";
-    $("bugVer").value  = saved.installedVersion ? ("Game v"+saved.installedVersion) : "not installed";
-    if($("bugTargetHint")) $("bugTargetHint").textContent="Game bug — please sign in so we can look up your account.";
-  }
+  $("bugUser").value = acct || "not signed in";
+  $("bugVer").value  = saved.installedVersion ? ("Game v"+saved.installedVersion) : "not installed";
 }
 async function openBugReport(){
   beep();
   ["bugType","bugTitle","bugLoc","bugText"].forEach(id=>{ if($(id)) $(id).value=""; });
   $("bugMsg").textContent=""; bugCrashLog="";
-  setBugTarget("game");
+  fillBugFields();
   $("bugDiag").textContent=bugDiagnostics();
   $("bugModal").classList.remove("hidden");
   // Attach the last game run's crash log (desktop only; bridge is stripped on web).
@@ -1497,7 +1513,6 @@ function bugDiagnostics(){
 }
 function buildReport(){
   return [
-    "Target: "+(bugTarget==="launcher"?"Launcher":"Game"),
     "Bug type: "+($("bugType").value||"—"),
     "Title: "+($("bugTitle").value.trim()||"—"),
     "Username: "+($("bugUser").value.trim()||"—"),
@@ -1511,13 +1526,13 @@ function buildReport(){
 async function sendBugEmail(){
   const title=$("bugTitle").value.trim(), type=$("bugType").value, desc=$("bugText").value.trim();
   if(!type || !title || !desc){ $("bugMsg").textContent="Please fill in bug type, title, and what happened."; return; }
-  if(bugTarget==="game" && !loggedIn()){ $("bugMsg").textContent="Please sign in to report a game bug, or switch to Launcher."; beep("error"); return; }
+  if(!loggedIn()){ $("bugMsg").textContent="Please sign in to report a bug."; beep("error"); return; }
   if(!CONFIG.emailjsTemplate){ $("bugMsg").textContent="Bug reporting isn't configured yet."; return; }
   if(typeof emailjs==="undefined"){ $("bugMsg").textContent="Email service didn't load — use Copy."; return; }
   $("bugMsg").textContent="Sending…";
   try{
     await emailjs.send(CONFIG.emailjsService, CONFIG.emailjsTemplate, {
-      subject: "GrigoriNightDragon "+(bugTarget==="launcher"?"Launcher":"Game")+" bug report: "+title,
+      subject: "GrigoriNightDragon bug report: "+title,
       from_name: (saved.account?saved.account.name:"Player"),
       to_email: CONFIG.supportEmail,
       bug_type: type,
@@ -1535,14 +1550,64 @@ async function copyBugReport(){
   catch{ $("bugMsg").textContent="Send it to "+CONFIG.supportEmail+" (couldn't auto-copy)."; }
 }
 
+function openBanAppeal(){
+  beep();
+  ["banUser","banEmail","banWhen","banReason","banText"].forEach(id=>{ if($(id)) $(id).value=""; });
+  $("banMsg").textContent="";
+  if(saved.account){ if($("banUser")) $("banUser").value=saved.account.name||""; if($("banEmail")) $("banEmail").value=saved.account.email||""; }
+  $("banModal").classList.remove("hidden");
+}
+function closeBanAppeal(){ $("banModal").classList.add("hidden"); }
+function buildAppeal(){
+  return [
+    "Account username: "+($("banUser").value.trim()||"—"),
+    "Account email: "+($("banEmail").value.trim()||"—"),
+    "When banned: "+($("banWhen").value.trim()||"—"),
+    "Ban reason shown: "+($("banReason").value.trim()||"—"),
+    "\nWhy it should be lifted:\n"+($("banText").value.trim()||"—"),
+    "\n---- diagnostics ----",
+    "Signed in as: "+(saved.account?(saved.account.name+" / "+(saved.account.playFabId||"—")):"not signed in"),
+    "Title: "+CONFIG.playfabTitleId,
+    "When: "+new Date().toISOString(),
+    "Device: "+navigator.userAgent
+  ].join("\n");
+}
+async function sendBanAppeal(){
+  const user=$("banUser").value.trim(), email=$("banEmail").value.trim(), why=$("banText").value.trim();
+  if(!user || !email || !why){ $("banMsg").textContent="Please fill in your account username, email, and why the ban should be lifted."; return; }
+  if(email.indexOf("@")<1){ $("banMsg").textContent="Please enter a valid account email."; beep("error"); return; }
+  if(!CONFIG.emailjsTemplate){ $("banMsg").textContent="Appeals aren't configured yet."; return; }
+  if(typeof emailjs==="undefined"){ $("banMsg").textContent="Email service didn't load — use Copy."; return; }
+  $("banMsg").textContent="Sending…";
+  try{
+    await emailjs.send(CONFIG.emailjsService, CONFIG.emailjsTemplate, {
+      subject: "GrigoriNightDragon ban appeal: "+user,
+      from_name: user,
+      to_email: CONFIG.supportEmail,
+      bug_type: "Ban appeal",
+      message: buildAppeal()
+    }, { publicKey: CONFIG.emailjsPublicKey });
+    $("banMsg").textContent="Appeal sent — we'll review it. Thank you."; beep("login");
+    setTimeout(closeBanAppeal, 1200);
+  }catch(e){
+    $("banMsg").textContent="Couldn't send ("+(e&&e.text?e.text:"error")+") — try Copy instead."; beep("error");
+  }
+}
+async function copyBanAppeal(){
+  const text="To: "+CONFIG.supportEmail+"\nSubject: GrigoriNightDragon ban appeal\n\n"+buildAppeal();
+  try{ await navigator.clipboard.writeText(text); $("banMsg").textContent="Copied. Paste it into an email to "+CONFIG.supportEmail+"."; }
+  catch{ $("banMsg").textContent="Send it to "+CONFIG.supportEmail+" (couldn't auto-copy)."; }
+}
+
 // ---- init / event wiring ------------------------------------------------
 try{ const g=JSON.parse(sessionStorage.getItem("gnd_lu")||"{}"); if(g.target && String(g.target)===String(LAUNCHER_VERSION)) sessionStorage.removeItem("gnd_lu"); }catch{}
 $("settingsBtn").addEventListener("click", openSettings);
 $("accountModal").addEventListener("click",(e)=>{ if(e.target===$("accountModal")) closeAccount(); });
 $("settingsModal").addEventListener("click",(e)=>{ if(e.target===$("settingsModal")) closeSettings(); });
 $("bugModal").addEventListener("click",(e)=>{ if(e.target===$("bugModal")) closeBugReport(); });
+$("banModal").addEventListener("click",(e)=>{ if(e.target===$("banModal")) closeBanAppeal(); });
 $("adminModal").addEventListener("click",(e)=>{ if(e.target===$("adminModal")) closeAdmin(); });
-document.addEventListener("keydown",(e)=>{ if(e.key==="Escape"){ closeAccount(); closeSettings(); closeBugReport(); closeAdmin(); } });
+document.addEventListener("keydown",(e)=>{ if(e.key==="Escape"){ closeAccount(); closeSettings(); closeBugReport(); closeBanAppeal(); closeAdmin(); } });
 
 // global UI click sound: any button or nav tab plays a soft tick
 document.addEventListener("click",(e)=>{
