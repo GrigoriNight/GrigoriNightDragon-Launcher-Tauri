@@ -222,7 +222,7 @@
       <button onclick="closeAccount()" class="xb">&times;</button>
     </div>
     <div id="loggedOut">
-      <div class="flex gap-2 mb-4">
+      <div id="authTabs" class="flex gap-2 mb-4">
         <button id="tabLogin" onclick="authTab('login')" class="flex-1 py-2 rounded-lg text-xs uppercase tracking-widest bg-white/10">Log in</button>
         <button id="tabRegister" onclick="authTab('register')" class="flex-1 py-2 rounded-lg text-xs uppercase tracking-widest border border-white/10">Register</button>
       </div>
@@ -230,12 +230,24 @@
         <input id="loginId" class="field" placeholder="Email or username"/>
         <input id="loginPass" type="password" class="field" placeholder="Password"/>
         <button id="loginBtn" onclick="doLogin()" class="w-full bg-gradient-to-r from-red-700 to-orange-500 py-2.5 rounded-lg font-bold uppercase tracking-widest hover:brightness-110 disabled:opacity-50">Log in</button>
+        <button type="button" onclick="forgotPasswordLogin()" class="w-full text-xs text-gray-400 hover:text-white underline">Forgot password?</button>
+        <div id="loginMsg" class="text-amber-400 text-xs hidden"></div>
       </div>
       <div id="formRegister" class="space-y-3 hidden">
         <input id="regUser" class="field" placeholder="Username (3–20 characters)"/>
         <input id="regEmail" type="email" class="field" placeholder="Email"/>
         <input id="regPass" type="password" class="field" placeholder="Password (min 6 characters)"/>
         <button id="registerBtn" onclick="doRegister()" class="w-full bg-gradient-to-r from-red-700 to-orange-500 py-2.5 rounded-lg font-bold uppercase tracking-widest hover:brightness-110 disabled:opacity-50">Create account</button>
+      </div>
+      <div id="formVerify" class="space-y-3 hidden">
+        <p class="text-sm text-gray-300">We emailed a 6-digit code to <span id="verifyEmailTo" class="text-white"></span>. Enter it below to verify your email.</p>
+        <input id="verifyCode" inputmode="numeric" maxlength="6" class="field text-center tracking-[0.4em]" placeholder="- - - - - -"/>
+        <button onclick="doVerifyEmail()" class="w-full bg-gradient-to-r from-red-700 to-orange-500 py-2.5 rounded-lg font-bold uppercase tracking-widest hover:brightness-110">Verify email</button>
+        <div class="flex gap-2">
+          <button type="button" onclick="resendEmailCode()" class="flex-1 ob py-2 text-xs uppercase tracking-widest">Resend</button>
+          <button type="button" onclick="skipVerify()" class="flex-1 ob py-2 text-xs uppercase tracking-widest">Skip for now</button>
+        </div>
+        <div id="verifyMsg" class="text-xs text-amber-400"></div>
       </div>
       <div id="loginError" class="text-red-400 text-xs mt-3 hidden"></div>
     </div>
@@ -252,6 +264,7 @@
       <input id="pf_name" class="field" placeholder="Display name"/>
       <label class="text-xs text-gray-400">Email</label>
       <input id="pf_email" type="email" class="field" placeholder="you@example.com"/>
+      <div id="emailStatus" class="text-xs mt-1"></div>
       <label class="text-xs text-gray-400">Avatar image URL</label>
       <input id="pf_avatar" class="field" placeholder="https://.../avatar.png"/>
       <button onclick="saveProfile()" class="mt-3 w-full bg-gradient-to-r from-red-700 to-orange-500 py-2.5 rounded-lg font-bold uppercase tracking-widest text-sm hover:brightness-110">Save profile</button>
@@ -297,11 +310,19 @@
     </div>
     <p class="text-xs text-gray-400 mb-3">Help us find and fix problems. Fields marked * are required.</p>
     <div class="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+      <div>
+        <label class="text-xs text-gray-400">What is this about? *</label>
+        <div class="flex gap-2 mt-1">
+          <button type="button" id="bugTargetGame" onclick="setBugTarget('game')" class="flex-1 py-2 rounded-lg text-xs uppercase tracking-widest bg-white/10">Game</button>
+          <button type="button" id="bugTargetLauncher" onclick="setBugTarget('launcher')" class="flex-1 py-2 rounded-lg text-xs uppercase tracking-widest border border-white/10">Launcher</button>
+        </div>
+        <p id="bugTargetHint" class="text-[10px] text-gray-500 mt-1">Game bugs require sign-in. Launcher bugs can be sent anonymously.</p>
+      </div>
       <div class="grid grid-cols-2 gap-3">
         <div><label class="text-xs text-gray-400">In-game username</label>
-          <input id="bugUser" class="field" placeholder="auto-filled if signed in"/></div>
-        <div><label class="text-xs text-gray-400">Game version</label>
-          <input id="bugVer" class="field" placeholder="auto-filled"/></div>
+          <input id="bugUser" class="field opacity-60 cursor-not-allowed" readonly tabindex="-1" placeholder="auto-detected"/></div>
+        <div><label class="text-xs text-gray-400">Game version / install</label>
+          <input id="bugVer" class="field opacity-60 cursor-not-allowed" readonly tabindex="-1" placeholder="auto-detected"/></div>
       </div>
       <div><label class="text-xs text-gray-400">Bug type *</label>
         <select id="bugType" class="field">
@@ -530,7 +551,7 @@ function storeCard(it){
     : `<span class="text-3xl opacity-60">🐉</span>`;
   const cd=cooldownLeft(it.ItemId);
   const lim=isLimited(it);
-  const limOwned=lim && !!limitedOwnedSet[it.ItemId];
+  const limOwned=lim && (!!limitedOwnedSet[it.ItemId] || !!ownedMap[it.ItemId]);
   const btn = maintLock()
     ? `<button disabled class="px-4 py-2 rounded-lg bg-white/10 text-gray-500 text-xs font-bold uppercase tracking-widest cursor-not-allowed">Closed</button>`
     : limOwned
@@ -669,6 +690,8 @@ async function buyItem(itemId){
 }
 
 function authTab(which){ const login=which==="login";
+  if($("formVerify")) $("formVerify").classList.add("hidden");
+  if($("authTabs")) $("authTabs").classList.remove("hidden");
   $("formLogin").classList.toggle("hidden", !login); $("formRegister").classList.toggle("hidden", login);
   $("tabLogin").className="flex-1 py-2 rounded-lg text-xs uppercase tracking-widest "+(login?"bg-white/10":"border border-white/10");
   $("tabRegister").className="flex-1 py-2 rounded-lg text-xs uppercase tracking-widest "+(!login?"bg-white/10":"border border-white/10");
@@ -691,8 +714,65 @@ async function doRegister(){
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){ loginError("Enter a valid email address."); beep("error"); return; }
   if(pw.length<6){ loginError("Password must be at least 6 characters."); beep("error"); return; }
   setAuthBusy(true); loginError("");
-  try{ saved.account=await pfRegister(u,em,pw); persist(saved); await claimSession(); startSessionGuard(); $("regPass").value=""; renderAccount(); beep("login"); loadProfile(); refreshLive(); setTimeout(closeAccount,600); }
+  try{
+    saved.account=await pfRegister(u,em,pw); saved.account.email=em; persist(saved);
+    await claimSession(); startSessionGuard(); $("regPass").value=""; renderAccount(); beep("login"); loadProfile(); refreshLive();
+    showVerifyView(em);
+    $("verifyMsg").textContent="Sending code…";
+    try{ const r=await sendEmailCodeFor(em); const fr=r&&r.FunctionResult;
+      $("verifyMsg").textContent=(fr&&fr.sent)?("Code sent to "+em+".")
+        :("Couldn't email a code"+(fr&&fr.error?(" ("+fr.error+")"):"")+" — you can Skip for now."); }
+    catch(e){ $("verifyMsg").textContent="Couldn't email a code — you can Skip for now."; }
+  }
   catch(e){ loginError(friendlyAuthError(e)); beep("error"); } finally{ setAuthBusy(false); }
+}
+// ---- email verification (custom 6-digit code via CloudScript) -----------
+let pendingVerifyEmail="";
+function showVerifyView(email){
+  pendingVerifyEmail=email||"";
+  if($("verifyEmailTo")) $("verifyEmailTo").textContent=email||"your email";
+  if($("authTabs")) $("authTabs").classList.add("hidden");
+  $("formLogin").classList.add("hidden"); $("formRegister").classList.add("hidden");
+  $("formVerify").classList.remove("hidden");
+  $("verifyCode").value=""; $("verifyMsg").textContent="";
+}
+function exitVerifyView(){ authTab("login"); }
+function skipVerify(){ exitVerifyView(); closeAccount(); }
+async function sendEmailCodeFor(email){
+  return pfAuth("/Client/ExecuteCloudScript",{ FunctionName:"sendEmailCode", FunctionParameter:{ email:email }, GeneratePlayStreamEvent:false });
+}
+async function doVerifyEmail(){
+  const code=$("verifyCode").value.trim();
+  if(!/^\d{6}$/.test(code)){ $("verifyMsg").textContent="Enter the 6-digit code from the email."; beep("error"); return; }
+  $("verifyMsg").textContent="Verifying…";
+  try{
+    const r=await pfAuth("/Client/ExecuteCloudScript",{ FunctionName:"verifyEmailCode", FunctionParameter:{ code:code }, GeneratePlayStreamEvent:false });
+    const fr=r&&r.FunctionResult;
+    if(fr&&fr.verified){
+      saved.account.emailVerified=true; persist(saved); renderAccount();
+      $("verifyMsg").textContent="Email verified ✓"; beep("login");
+      setTimeout(()=>{ exitVerifyView(); closeAccount(); }, 800);
+    } else { $("verifyMsg").textContent="That code didn't match or expired — tap Resend."; beep("error"); }
+  }catch(e){ $("verifyMsg").textContent="Verify failed — try again."; beep("error"); }
+}
+async function resendEmailCode(){
+  const em=pendingVerifyEmail||(saved.account&&saved.account.email)||"";
+  if(!em){ $("verifyMsg").textContent="No email on file to send to."; return; }
+  $("verifyMsg").textContent="Resending…";
+  try{ const r=await sendEmailCodeFor(em); const fr=r&&r.FunctionResult;
+    $("verifyMsg").textContent=(fr&&fr.sent)?("New code sent to "+em+".")
+      :("Couldn't resend"+(fr&&fr.error?(" ("+fr.error+")"):"")+"."); }
+  catch(e){ $("verifyMsg").textContent="Couldn't resend the code."; }
+}
+async function startVerifyFromAccount(){
+  const em=(saved.account&&saved.account.email)||$("pf_email").value.trim();
+  if(!em){ $("pfMsg").textContent="Add your email above and Save profile first."; return; }
+  $("loggedIn").classList.add("hidden"); $("loggedOut").classList.remove("hidden");
+  showVerifyView(em); $("verifyMsg").textContent="Sending code…";
+  try{ const r=await sendEmailCodeFor(em); const fr=r&&r.FunctionResult;
+    $("verifyMsg").textContent=(fr&&fr.sent)?("Code sent to "+em+".")
+      :("Couldn't email a code"+(fr&&fr.error?(" ("+fr.error+")"):"")+"."); }
+  catch(e){ $("verifyMsg").textContent="Couldn't email a code."; }
 }
 function doLogout(){ saved.account=null; persist(saved); storeLoaded=false; isAdmin=false; maintenance={on:false}; applyMaintenance(); if($("storeGrid")) $("storeGrid").innerHTML=""; renderAccount(); beep(); loadStore(true); }
 
@@ -703,7 +783,10 @@ async function loadProfile(){
     const a=(d&&d.AccountInfo)||{}, t=a.TitleInfo||{}, pv=a.PrivateInfo||{};
     saved.account.display=t.DisplayName||a.Username||"";
     saved.account.avatar=t.AvatarUrl||"";
-    saved.account.email=pv.Email||"";
+    if(pv.Email) saved.account.email=pv.Email;
+    try{ const ro=await pfAuth("/Client/GetUserReadOnlyData",{Keys:["emailVerified"]});
+      const v=ro&&ro.Data&&ro.Data.emailVerified&&ro.Data.emailVerified.Value;
+      saved.account.emailVerified=(v==="true"); }catch{}
     persist(saved); renderAccount();
   }catch{}
 }
@@ -720,18 +803,26 @@ async function saveProfile(){
     $("pfMsg").textContent="Profile saved."; beep("login");
   }catch(err){ $("pfMsg").textContent="Save failed: "+(err.message||"error"); beep("error"); }
 }
+async function sendRecovery(email){
+  const r=await fetch(pfBase()+"/Client/SendAccountRecoveryEmail",{method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({TitleId:CONFIG.playfabTitleId,Email:email})});
+  let d={}; try{ d=await r.json(); }catch{}
+  return { ok:(d&&d.code===200), err:(d&&d.errorMessage)||"error" };
+}
 async function resetPassword(){
   const e=$("pf_email").value.trim()||saved.account.email||"";
   if(!e){ $("pfMsg").textContent="Enter your email first."; return; }
   $("pfMsg").textContent="Sending...";
-  try{
-    const r=await fetch(pfBase()+"/Client/SendAccountRecoveryEmail",{method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({TitleId:CONFIG.playfabTitleId,Email:e})});
-    const d=await r.json();
-    $("pfMsg").textContent=(d&&d.code===200)?("Password reset email sent to "+e)
-      :("Couldn't send: "+((d&&d.errorMessage)||"error"));
-  }catch{ $("pfMsg").textContent="Couldn't send reset email."; }
+  try{ const r=await sendRecovery(e); $("pfMsg").textContent=r.ok?("Password reset email sent to "+e):("Couldn't send: "+r.err); }
+  catch{ $("pfMsg").textContent="Couldn't send reset email."; }
+}
+async function forgotPasswordLogin(){
+  const id=$("loginId").value.trim(), m=$("loginMsg");
+  if(!id || id.indexOf("@")<1){ loginError("Enter your account email above, then tap Forgot password?"); beep("error"); return; }
+  loginError(""); if(m){ m.classList.remove("hidden"); m.textContent="Sending reset email…"; }
+  try{ const r=await sendRecovery(id); if(m) m.textContent=r.ok?("Reset email sent to "+id+". Check your inbox."):("Couldn't send ("+r.err+")."); }
+  catch{ if(m) m.textContent="Couldn't send reset email."; }
 }
 function acctLabel(){ return (saved.account&&(saved.account.display||saved.account.name))||""; }
 function renderAccount(){
@@ -744,6 +835,9 @@ function renderAccount(){
     if($("pf_email")) $("pf_email").value=saved.account.email||"";
     if($("pf_avatar")) $("pf_avatar").value=saved.account.avatar||"";
     $("accountId").innerText=saved.account.playFabId?("PlayFab ID: "+saved.account.playFabId):"";
+    const es=$("emailStatus");
+    if(es){ if(saved.account.emailVerified){ es.innerHTML="Email verified ✓"; es.className="text-xs mt-1 text-green-400"; }
+      else { es.innerHTML='Email not verified — <button type="button" onclick="startVerifyFromAccount()" class="underline hover:text-white">Verify now</button>'; es.className="text-xs mt-1 text-amber-400"; } }
     const ad=$("adminDiag"); if(ad){ ad.textContent=adminDiag; ad.className="text-xs mt-2 "+(isAdmin?"text-amber-400":"text-gray-500"); }
     b.textContent="◆ "+acctLabel();
     $("acctBadge").innerHTML="◆ "+escapeHtml(acctLabel());
@@ -1312,7 +1406,7 @@ async function pollLive(){
     try{ maintenance = d.maintenance ? JSON.parse(d.maintenance) : {on:false}; }catch{ maintenance={on:false}; }
     try{ limitedItems = d.limitedItems ? JSON.parse(d.limitedItems) : []; }catch{ limitedItems=[]; }
     if(!(limitedItems instanceof Array)) limitedItems=[];
-    renderNews(); applyMaintenance();
+    renderNews(); applyMaintenance(); if(storeLoaded) renderStore();
   }catch{}
   finally{ livePolling=false; }
 }
@@ -1357,14 +1451,39 @@ async function startSessionGuard(){
   sessionGuardTimer=setInterval(enforceSingleSession, 5000);
 }
 
-// ---- bug report (mailto — no external service) --------------------------
-function openBugReport(){
+// ---- bug report (EmailJS) -----------------------------------------------
+let bugTarget="game", bugCrashLog="";
+function setBugTarget(t){
+  bugTarget = (t==="launcher") ? "launcher" : "game";
+  const g=$("bugTargetGame"), l=$("bugTargetLauncher"), base="flex-1 py-2 rounded-lg text-xs uppercase tracking-widest ";
+  if(g) g.className=base+(bugTarget==="game"?"bg-white/10":"border border-white/10");
+  if(l) l.className=base+(bugTarget==="launcher"?"bg-white/10":"border border-white/10");
+  const acct = saved.account ? acctLabel() : "";
+  if(bugTarget==="launcher"){
+    $("bugUser").value = acct || "anonymous";
+    $("bugVer").value  = "Launcher v"+LAUNCHER_VERSION;
+    if($("bugTargetHint")) $("bugTargetHint").textContent="Launcher bug — you can send this without signing in.";
+  } else {
+    $("bugUser").value = acct || "not signed in";
+    $("bugVer").value  = saved.installedVersion ? ("Game v"+saved.installedVersion) : "not installed";
+    if($("bugTargetHint")) $("bugTargetHint").textContent="Game bug — please sign in so we can look up your account.";
+  }
+}
+async function openBugReport(){
   beep();
-  $("bugUser").value = saved.account ? saved.account.name : "";
-  $("bugVer").value  = saved.installedVersion ? ("v"+saved.installedVersion) : "not installed";
   ["bugType","bugTitle","bugLoc","bugText"].forEach(id=>{ if($(id)) $(id).value=""; });
-  $("bugMsg").textContent=""; $("bugDiag").textContent=bugDiagnostics();
+  $("bugMsg").textContent=""; bugCrashLog="";
+  setBugTarget("game");
+  $("bugDiag").textContent=bugDiagnostics();
   $("bugModal").classList.remove("hidden");
+  // Attach the last game run's crash log (desktop only; bridge is stripped on web).
+  if(typeof window.__GND_CRASHLOG__==="function"){
+    try{
+      const log=await window.__GND_CRASHLOG__();
+      bugCrashLog=(log||"").trim();
+      if(bugCrashLog) $("bugDiag").textContent=bugDiagnostics()+"\n\nCrash log attached ("+bugCrashLog.length+" chars).";
+    }catch{}
+  }
 }
 function closeBugReport(){ $("bugModal").classList.add("hidden"); }
 function bugDiagnostics(){
@@ -1378,24 +1497,27 @@ function bugDiagnostics(){
 }
 function buildReport(){
   return [
+    "Target: "+(bugTarget==="launcher"?"Launcher":"Game"),
     "Bug type: "+($("bugType").value||"—"),
     "Title: "+($("bugTitle").value.trim()||"—"),
     "Username: "+($("bugUser").value.trim()||"—"),
     "Game version: "+($("bugVer").value.trim()||"—"),
     "Location: "+($("bugLoc").value.trim()||"—"),
     "\nWhat happened:\n"+($("bugText").value.trim()||"—"),
-    "\n---- diagnostics ----\n"+bugDiagnostics()
+    "\n---- diagnostics ----\n"+bugDiagnostics(),
+    bugCrashLog ? ("\n---- crash log (last game run) ----\n"+bugCrashLog) : ""
   ].join("\n");
 }
 async function sendBugEmail(){
   const title=$("bugTitle").value.trim(), type=$("bugType").value, desc=$("bugText").value.trim();
   if(!type || !title || !desc){ $("bugMsg").textContent="Please fill in bug type, title, and what happened."; return; }
+  if(bugTarget==="game" && !loggedIn()){ $("bugMsg").textContent="Please sign in to report a game bug, or switch to Launcher."; beep("error"); return; }
   if(!CONFIG.emailjsTemplate){ $("bugMsg").textContent="Bug reporting isn't configured yet."; return; }
   if(typeof emailjs==="undefined"){ $("bugMsg").textContent="Email service didn't load — use Copy."; return; }
   $("bugMsg").textContent="Sending…";
   try{
     await emailjs.send(CONFIG.emailjsService, CONFIG.emailjsTemplate, {
-      subject: "GrigoriNightDragon bug report: "+title,
+      subject: "GrigoriNightDragon "+(bugTarget==="launcher"?"Launcher":"Game")+" bug report: "+title,
       from_name: (saved.account?saved.account.name:"Player"),
       to_email: CONFIG.supportEmail,
       bug_type: type,

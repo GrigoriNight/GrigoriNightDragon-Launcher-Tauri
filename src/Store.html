@@ -292,7 +292,7 @@ function storeCard(it){
     : `<span class="text-3xl opacity-60">🐉</span>`;
   const cd=cooldownLeft(it.ItemId);
   const lim=isLimited(it);
-  const limOwned=lim && !!limitedOwnedSet[it.ItemId];
+  const limOwned=lim && (!!limitedOwnedSet[it.ItemId] || !!ownedMap[it.ItemId]);
   const btn = maintLock()
     ? `<button disabled class="px-4 py-2 rounded-lg bg-white/10 text-gray-500 text-xs font-bold uppercase tracking-widest cursor-not-allowed">Closed</button>`
     : limOwned

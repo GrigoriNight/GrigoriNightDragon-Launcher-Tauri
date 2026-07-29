@@ -94,3 +94,8 @@ open('Launcher.godaddy.html', 'w', encoding='utf-8').write(out)
 print('js body:', len(js_body), '->', len(js_min))
 print('prefix :', len(prefix), '->', len(prefix_min))
 print('TOTAL  :', len(out), 'chars')
+
+# Optional one-step publish to the public gnd-news repo (build + ship in one go).
+# Needs $GITHUB_TOKEN in the environment; push_web.py never reads a token from disk.
+if '--publish' in sys.argv:
+    subprocess.run([sys.executable, 'push_web.py'])
