@@ -211,6 +211,24 @@
         <input id="gh_token" type="password" class="field" style="margin:0" placeholder="GitHub token (ghp_… / github_pat_…)"/>
         <div id="ghState" class="text-[11px] text-gray-500 mt-2"></div>
       </div>
+      <div class="border border-white/10 rounded-xl p-4 mt-5">
+        <h3 class="uppercase tracking-widest text-gray-400 text-xs mb-2">Player bans</h3>
+        <p class="text-[11px] text-gray-500 mb-3">Ban an account by its PlayFab ID, or load players to ban / view bans. Bans are enforced server-side; online players are kicked within a few seconds.</p>
+        <div class="grid grid-cols-1 gap-2 mb-2">
+          <input id="banTargetId" class="field" style="margin:0" placeholder="Target PlayFab ID"/>
+          <input id="banTargetReason" class="field" style="margin:0" maxlength="200" placeholder="Reason (shown to the player)"/>
+          <div class="flex gap-2">
+            <input id="banTargetDays" type="number" min="1" class="field" style="margin:0" placeholder="Days (blank = permanent)"/>
+            <button onclick="adminBanById()" class="ob px-5 whitespace-nowrap">Ban</button>
+          </div>
+        </div>
+        <div class="flex gap-2 mb-2">
+          <button onclick="adminLoadPlayers()" class="ob px-4 text-xs uppercase tracking-widest">Load players</button>
+        </div>
+        <div id="adminPlayers" class="text-xs text-gray-400 max-h-48 overflow-y-auto space-y-1"></div>
+        <div id="adminBanList" class="text-xs text-gray-300 mt-2"></div>
+        <div id="adminBanMsg" class="text-[11px] text-amber-400 mt-2"></div>
+      </div>
     </div>
     <div class="flex gap-3 mt-5">
       <button onclick="saveAdmin()" class="flex-1 bg-gradient-to-r from-amber-500 to-yellow-500 text-black py-3 rounded-xl font-bold uppercase tracking-widest hover:brightness-110">Publish live</button>
@@ -345,6 +363,25 @@
       <button onclick="copyBugReport()" class="px-5 border border-white/10 rounded-lg text-sm hover:bg-white/10">Copy</button>
     </div>
     <div id="bugMsg" class="text-xs text-amber-400 mt-3"></div>
+  </div>
+</div>
+
+<div id="banNoticeModal" class="hidden flex mdl">
+  <div class="mdc max-w-md">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-xl font-bold uppercase tracking-widest text-red-400">Account Banned</h2>
+      <button onclick="closeBanNotice()" class="xb">&times;</button>
+    </div>
+    <p class="text-sm text-gray-300 mb-4">Your account has been banned and you cannot sign in.</p>
+    <div class="space-y-2 text-sm bg-black/40 rounded-lg p-3 border border-red-500/20">
+      <div><span class="text-gray-400">Reason:</span> <span id="bn_reason" class="text-red-300 font-semibold">—</span></div>
+      <div><span class="text-gray-400">Banned:</span> <span id="bn_at" class="text-gray-200">—</span></div>
+      <div><span class="text-gray-400">Expires:</span> <span id="bn_until" class="text-gray-200">—</span></div>
+    </div>
+    <div class="flex gap-3 mt-4">
+      <button onclick="appealFromNotice()" class="flex-1 bg-gradient-to-r from-amber-600 to-yellow-500 py-2.5 rounded-lg font-bold uppercase tracking-widest hover:brightness-110 text-black">Appeal this ban</button>
+      <button onclick="closeBanNotice()" class="px-5 border border-white/10 rounded-lg text-sm hover:bg-white/10">Close</button>
+    </div>
   </div>
 </div>
 
@@ -502,7 +539,7 @@ function pfBase(){ return "https://"+CONFIG.playfabTitleId+".playfabapi.com"; }
 async function pfPost(path, body){
   const r=await fetch(pfBase()+path,{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) });
   let d={}; try{ d=await r.json(); }catch{}
-  if(!r.ok || d.code!==200) throw new Error(d.errorMessage || d.error || ("HTTP "+r.status));
+  if(!r.ok || d.code!==200){ const err=new Error(d.errorMessage || d.error || ("HTTP "+r.status)); err.pfError=d.error||""; err.pfCode=d.errorCode||0; err.pfMessage=d.errorMessage||""; throw err; }
   return d.data;
 }
 async function pfLogin(identifier, password){
@@ -732,7 +769,7 @@ async function doLogin(){
   if(!id||!pw){ loginError("Enter your email/username and password."); beep("error"); return; }
   setAuthBusy(true); loginError("");
   try{ saved.account=await pfLogin(id,pw); persist(saved); await claimSession(); startSessionGuard(); $("loginPass").value=""; renderAccount(); beep("login"); loadProfile(); refreshLive(); setTimeout(closeAccount,600); }
-  catch(e){ loginError(friendlyAuthError(e)); beep("error"); } finally{ setAuthBusy(false); }
+  catch(e){ if(isBanError(e)){ showBanNotice(banDetailFromError(e)); } else { loginError(friendlyAuthError(e)); beep("error"); } } finally{ setAuthBusy(false); }
 }
 async function doRegister(){
   if(!CONFIG.playfabTitleId){ loginError("Set your PlayFab Title ID in CONFIG."); beep("error"); return; }
@@ -867,10 +904,10 @@ function renderAccount(){
       else { es.innerHTML='Email not verified — <button type="button" onclick="startVerifyFromAccount()" class="underline hover:text-white">Verify now</button>'; es.className="text-xs mt-1 text-amber-400"; } }
     const ad=$("adminDiag"); if(ad){ ad.textContent=adminDiag; ad.className="text-xs mt-2 "+(isAdmin?"text-amber-400":"text-gray-500"); }
     b.textContent="◆ "+acctLabel();
-    $("acctBadge").innerHTML="◆ "+escapeHtml(acctLabel());
+    { const ab=$("acctBadge"); if(ab) ab.innerHTML="◆ "+escapeHtml(acctLabel()); }
   } else {
     $("loggedIn").classList.add("hidden"); $("loggedOut").classList.remove("hidden");
-    b.textContent="Sign in"; $("acctBadge").innerText="Not signed in";
+    b.textContent="Sign in"; { const ab=$("acctBadge"); if(ab) ab.innerText="Not signed in"; }
   }
   gateButtons();
 }
@@ -926,7 +963,7 @@ async function loadGithubNews(){
 }
 // Rebuild the whole news.html page (viewable + embedded JSON) from a news array.
 function buildNewsHtml(news){
-  // Escape "<" so a "</script>" inside any news text can't close the data block.
+  // Escape "<" so a closing script tag inside any news text can't close the data block.
   const json=JSON.stringify(news||[],null,2).replace(/</g,"\\u003c");
   return `<!DOCTYPE html>
 <html lang="en">
@@ -1041,6 +1078,8 @@ async function openAdmin(){
   if($("gh_token")) $("gh_token").value=ghToken();
   if($("ghState")) $("ghState").textContent=ghToken()?"Token saved in this browser.":"No token yet — GitHub publishing disabled.";
   $("adminMsg").textContent="";
+  ["adminPlayers","adminBanList","adminBanMsg"].forEach(id=>{ if($(id)) $(id).innerHTML=""; });
+  ["banTargetId","banTargetReason","banTargetDays"].forEach(id=>{ if($(id)) $(id).value=""; });
   $("adminModal").classList.remove("hidden");
   if(!storeLoaded){ try{ await loadStore(); }catch(e){} }
   renderLimitedAdmin();
@@ -1116,6 +1155,91 @@ async function saveAdmin(){
   $("adminMsg").textContent = allOk ? "Published — live on GitHub for all players." : ("Published with issues — "+ghMsg);
   beep(allOk?"login":"error");
   loadGithubNews();
+}
+
+// ---- admin: player bans -------------------------------------------------
+function adminBanMsg(t, ok){ const el=$("adminBanMsg"); if(el){ el.textContent=t||""; el.className="text-[11px] mt-2 "+(ok?"text-emerald-400":"text-amber-400"); } }
+async function adminCloud(fn, params){
+  const r=await pfAuth("/Client/ExecuteCloudScript",{ FunctionName:fn, FunctionParameter:params||{}, GeneratePlayStreamEvent:false });
+  if(r.Error) throw new Error(r.Error.Message||r.Error.Error||"CloudScript error");
+  return r.FunctionResult;
+}
+function adminFillBan(id){ if($("banTargetId")) $("banTargetId").value=id; if($("banTargetReason")) $("banTargetReason").focus(); }
+async function adminBanById(){
+  if(!isAdmin) return;
+  const id=($("banTargetId").value||"").trim();
+  const reason=($("banTargetReason").value||"").trim();
+  const daysRaw=($("banTargetDays").value||"").trim();
+  if(!id){ adminBanMsg("Enter a target PlayFab ID."); return; }
+  const days=daysRaw?parseInt(daysRaw,10):0;
+  const p={ PlayFabId:id, Reason:reason };
+  if(days>0) p.Days=days;
+  adminBanMsg("Banning…");
+  try{
+    const fr=await adminCloud("banPlayer", p);
+    if(!fr||!fr.success) throw new Error("Ban failed");
+    adminBanMsg("Banned "+id+(days>0?(" for "+days+" day(s).") : " permanently."), true);
+    beep("login");
+    $("banTargetId").value=""; $("banTargetReason").value=""; $("banTargetDays").value="";
+  }catch(e){ adminBanMsg("Ban failed: "+(e.message||"error")); beep("error"); }
+}
+async function adminLoadPlayers(){
+  if(!isAdmin) return;
+  adminBanMsg("Loading players…");
+  try{
+    const r=await adminCloud("Admin_GetAllPlayers", {});
+    if(r && r.success===false){ renderAdminPlayers([]); adminBanMsg("Load failed: "+(r.error||"unknown reason")); return; }
+    const list=Array.isArray(r)?r:(r && Array.isArray(r.players)?r.players:[]);
+    renderAdminPlayers(list);
+    adminBanMsg(list.length+" player(s) loaded.", true);
+  }catch(e){ adminBanMsg("Load failed: "+(e.message||"error")); }
+}
+function renderAdminPlayers(list){
+  const box=$("adminPlayers"); if(!box) return;
+  if(!list.length){ box.innerHTML="<div class='text-gray-500'>No players.</div>"; return; }
+  box.innerHTML=list.map(function(p){
+    const id=escapeHtml(p.PlayFabId||"");
+    const nm=escapeHtml(p.DisplayName||"Unnamed");
+    return '<div class="flex items-center justify-between gap-2 border-b border-white/5 py-1">'
+      +'<div class="min-w-0"><div class="text-gray-200 truncate">'+nm+'</div>'
+      +'<div class="text-gray-500 text-[10px] truncate">'+id+'</div></div>'
+      +'<div class="flex gap-1 shrink-0">'
+      +'<button onclick="adminFillBan(\''+id+'\')" class="px-2 py-1 border border-white/10 rounded hover:bg-white/10">Ban</button>'
+      +'<button onclick="adminViewBans(\''+id+'\')" class="px-2 py-1 border border-white/10 rounded hover:bg-white/10">View bans</button>'
+      +'</div></div>';
+  }).join("");
+}
+async function adminViewBans(pid){
+  if(!isAdmin) return;
+  adminBanMsg("Loading bans…");
+  try{
+    const list=await adminCloud("getPlayerBans", { PlayFabId:pid });
+    const bans=Array.isArray(list)?list:[];
+    const box=$("adminBanList"); if(!box) return;
+    if(!bans.length){ box.innerHTML="<div class='text-gray-500 mt-1'>No bans for "+escapeHtml(pid)+".</div>"; adminBanMsg("No bans.", true); return; }
+    box.innerHTML="<div class='text-gray-400 mb-1'>Bans for "+escapeHtml(pid)+":</div>"+bans.map(function(b){
+      const active=b.Active;
+      const exp=b.Expires?fmtBanDate(b.Expires):"Permanent";
+      const reason=escapeHtml(b.Reason||"—");
+      const banId=escapeHtml(b.BanId||"");
+      return '<div class="flex items-center justify-between gap-2 border border-white/10 rounded-lg p-2 mb-1">'
+        +'<div class="min-w-0"><div class="truncate">'+reason+'</div>'
+        +'<div class="text-[10px] text-gray-500">'+(active?"Active":"Expired")+' · expires '+escapeHtml(exp)+'</div></div>'
+        +(active?'<button onclick="adminUnban(\''+escapeHtml(pid)+'\',\''+banId+'\')" class="px-2 py-1 border border-emerald-500/30 text-emerald-300 rounded hover:bg-emerald-500/10 shrink-0">Revoke</button>':'')
+        +'</div>';
+    }).join("");
+    adminBanMsg(bans.length+" ban(s).", true);
+  }catch(e){ adminBanMsg("Load bans failed: "+(e.message||"error")); }
+}
+async function adminUnban(pid, banId){
+  if(!isAdmin) return;
+  adminBanMsg("Revoking…");
+  try{
+    const fr=await adminCloud("unbanPlayer", { PlayFabId:pid, BanId:banId });
+    if(!fr||!fr.success) throw new Error("Revoke failed");
+    adminBanMsg("Ban revoked.", true); beep("login");
+    adminViewBans(pid);
+  }catch(e){ adminBanMsg("Revoke failed: "+(e.message||"error")); beep("error"); }
 }
 
 // ---- formatting ---------------------------------------------------------
@@ -1474,8 +1598,21 @@ function forceLogout(){
 async function startSessionGuard(){
   if(sessionGuardTimer) clearInterval(sessionGuardTimer);
   if(loggedIn() && !saved.account.session) await claimSession();
-  enforceSingleSession();
-  sessionGuardTimer=setInterval(enforceSingleSession, 5000);
+  enforceSingleSession(); checkBanStatus();
+  sessionGuardTimer=setInterval(()=>{ enforceSingleSession(); checkBanStatus(); }, 5000);
+}
+// Poll the account's server-written ban flag; kick + show notice if banned while online.
+async function checkBanStatus(){
+  if(!loggedIn()) return;
+  try{
+    const d=await pfAuth("/Client/GetUserReadOnlyData",{Keys:["KickNow","banReason","banAt","banUntil"]});
+    const D=(d&&d.Data)||{};
+    if(D.KickNow && D.KickNow.Value==="true"){
+      if(sessionGuardTimer){ clearInterval(sessionGuardTimer); sessionGuardTimer=null; }
+      showBanNotice({ reason:(D.banReason&&D.banReason.Value)||"", at:(D.banAt&&D.banAt.Value)||"", until:(D.banUntil&&D.banUntil.Value)||"" });
+      doLogout();
+    }
+  }catch{}
 }
 
 // ---- bug report (EmailJS) -----------------------------------------------
@@ -1558,6 +1695,28 @@ function openBanAppeal(){
   $("banModal").classList.remove("hidden");
 }
 function closeBanAppeal(){ $("banModal").classList.add("hidden"); }
+// ---- ban notice (shown when the account is banned) ----------------------
+function fmtBanDate(iso){ if(!iso) return ""; const d=new Date(iso); return isNaN(d.getTime())?String(iso):d.toLocaleString(); }
+function isBanError(e){ return !!(e && (e.pfError==="AccountBanned" || e.pfCode===1002 || /account.*ban|banned/i.test(String((e.pfMessage||e.message)||"")))); }
+function banDetailFromError(e){
+  const msg=String((e&&(e.pfMessage||e.message))||"");
+  const m=msg.match(/\d{4}-\d{2}-\d{2}T[\d:.]+Z?/);
+  return { reason: msg || "Your account has been banned.", at:"", until: m?m[0]:"", login:true };
+}
+function showBanNotice(info){
+  info=info||{};
+  const reason=(info.reason&&String(info.reason).trim())||"No reason was provided.";
+  const at=fmtBanDate(info.at);
+  const until=info.until?fmtBanDate(info.until):"Permanent";
+  if($("bn_reason")) $("bn_reason").textContent=reason;
+  if($("bn_at")){ $("bn_at").textContent=at||"Unknown"; if($("bn_at").parentElement) $("bn_at").parentElement.style.display=at?"":"none"; }
+  if($("bn_until")) $("bn_until").textContent=until;
+  closeAccount();
+  $("banNoticeModal").classList.remove("hidden");
+  beep("error");
+}
+function closeBanNotice(){ $("banNoticeModal").classList.add("hidden"); }
+function appealFromNotice(){ closeBanNotice(); openBanAppeal(); }
 function buildAppeal(){
   return [
     "Account username: "+($("banUser").value.trim()||"—"),
@@ -1607,7 +1766,7 @@ $("settingsModal").addEventListener("click",(e)=>{ if(e.target===$("settingsModa
 $("bugModal").addEventListener("click",(e)=>{ if(e.target===$("bugModal")) closeBugReport(); });
 $("banModal").addEventListener("click",(e)=>{ if(e.target===$("banModal")) closeBanAppeal(); });
 $("adminModal").addEventListener("click",(e)=>{ if(e.target===$("adminModal")) closeAdmin(); });
-document.addEventListener("keydown",(e)=>{ if(e.key==="Escape"){ closeAccount(); closeSettings(); closeBugReport(); closeBanAppeal(); closeAdmin(); } });
+document.addEventListener("keydown",(e)=>{ if(e.key==="Escape"){ closeAccount(); closeSettings(); closeBugReport(); closeBanAppeal(); closeBanNotice(); closeAdmin(); } });
 
 // global UI click sound: any button or nav tab plays a soft tick
 document.addEventListener("click",(e)=>{
@@ -1619,6 +1778,62 @@ function firstGesture(){ ac(); startMusic(); }
 window.addEventListener("pointerdown", firstGesture);
 window.addEventListener("keydown", firstGesture);
 initMusic();
+
+// ---- CSP-safe inline-handler shim ------------------------------------------
+// On the GoDaddy website the app markup is injected into a page whose Content-
+// Security-Policy blocks inline on* handler attributes (onclick=...), so every
+// button wired that way is dead even though this <script> itself runs (that is
+// why the gear, which uses addEventListener, works but "Sign in" did nothing).
+// Detect that case and ONLY then delegate clicks: read the onclick attribute
+// and call the named global function directly (no eval / new Function — CSP
+// blocks those too). On desktop (csp:null) native inline handlers still fire,
+// so the probe passes, the shim stays off, and nothing double-fires.
+var GND_INLINE_OK=false;
+(function(){
+  try{
+    var b=document.createElement("button");
+    b.setAttribute("onclick","window.__gndInlineProbe=1");
+    b.style.display="none"; document.body.appendChild(b);
+    window.__gndInlineProbe=0; b.click();
+    GND_INLINE_OK=(window.__gndInlineProbe===1);
+    b.remove(); try{ delete window.__gndInlineProbe; }catch(e){ window.__gndInlineProbe=void 0; }
+  }catch(e){ GND_INLINE_OK=false; }
+})();
+if(!GND_INLINE_OK){
+  var _gndArgs=function(s){
+    s=s.trim(); if(!s) return [];
+    try{ return JSON.parse("["+s.replace(/'/g,'"')+"]"); }
+    catch(e){
+      return s.split(",").map(function(a){
+        a=a.trim();
+        if(/^-?\d+(\.\d+)?$/.test(a)) return Number(a);
+        if(a==="true") return true; if(a==="false") return false;
+        return a.replace(/^['"]|['"]$/g,"");
+      });
+    }
+  };
+  var _gndResolve=function(path){
+    var parts=path.split("."), ctx=window, i;
+    for(i=0;i<parts.length-1;i++){ ctx=ctx&&ctx[parts[i]]; }
+    var fn=ctx&&ctx[parts[parts.length-1]];
+    return (typeof fn==="function")?{fn:fn,ctx:ctx}:null;
+  };
+  var _gndRun=function(code, el){
+    code.split(";").forEach(function(stmt){
+      stmt=stmt.trim(); if(!stmt) return;
+      var tc=stmt.match(/^this\.closest\((['"])(.*?)\1\)\.remove\(\)$/);
+      if(tc){ var n=el.closest(tc[2]); if(n) n.remove(); return; }
+      var m=stmt.match(/^([\w.$]+)\s*\((.*)\)$/);
+      if(!m) return;
+      var r=_gndResolve(m[1]); if(!r) return;
+      try{ r.fn.apply(r.ctx,_gndArgs(m[2])); }catch(err){ console.error("gnd handler",m[1],err); }
+    });
+  };
+  document.addEventListener("click",function(e){
+    var el=e.target.closest("[onclick]"); if(!el) return;
+    var code=el.getAttribute("onclick"); if(code) _gndRun(code, el);
+  });
+}
 
 showTab("play");
 renderAccount(); applyState(); tick(); startRecheck(); refreshLive(); startLivePoll(); startSessionGuard();
