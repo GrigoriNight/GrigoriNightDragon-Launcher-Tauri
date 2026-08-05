@@ -33,11 +33,6 @@
     ],
     "resources": [
       "../game/*"
-    ],
-    "windows": {
-      "certificateThumbprint": "",
-      "digestAlgorithm": "sha256",
-      "timestampUrl": "http://timestamp.digicert.com"
-    }
+    ]
   }
 }
