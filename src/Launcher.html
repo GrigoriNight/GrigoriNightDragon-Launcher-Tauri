@@ -1386,7 +1386,11 @@ async function saveAdmin(){
 function adminBanMsg(t, ok){ const el=$("adminBanMsg"); if(el){ el.textContent=t||""; el.className="text-[11px] mt-2 "+(ok?"text-emerald-400":"text-amber-400"); } }
 async function adminCloud(fn, params){
   const r=await pfAuth("/Client/ExecuteCloudScript",{ FunctionName:fn, FunctionParameter:params||{}, GeneratePlayStreamEvent:false });
-  if(r.Error) throw new Error(r.Error.Message||r.Error.Error||"CloudScript error");
+  if(r.Error){
+    let detail=r.Error.Message||r.Error.Error||"CloudScript error";
+    if(r.Error.StackTrace){ const m=String(r.Error.StackTrace).split("\n")[0]; if(m) detail=m; }
+    throw new Error(detail);
+  }
   return r.FunctionResult;
 }
 // ---- admin: GM mail + delivery alerts -----------------------------------
