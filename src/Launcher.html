@@ -844,14 +844,19 @@ function mailSenderBadge(m){
     return `<span class="px-2 py-0.5 rounded bg-white/10 text-gray-300 text-[10px] uppercase tracking-widest">System</span>`;
   return `<span class="px-2 py-0.5 rounded bg-white/10 text-gray-300 text-[10px] uppercase tracking-widest">Player</span>`;
 }
+let lastMail=[];
 function renderMail(list){
   const box=$("mailList"); if(!box) return;
+  lastMail=Array.isArray(list)?list:[];
   if(!list || !list.length){ box.innerHTML=`<div class="text-sm text-gray-500">Your mailbox is empty.</div>`; return; }
   box.innerHTML=list.map(m=>{
     const items=(m.items||[]);
     const when=m.createdAt?new Date(m.createdAt).toLocaleString():"";
     const claimBtn = (items.length && !m.claimed)
       ? `<button onclick="claimMail('${escapeHtml(m.id)}')" class="ob px-5 whitespace-nowrap">Claim</button>` : "";
+    // Reply is allowed for any mail that has a real sender (player or GM); system mail has none.
+    const replyBtn = (m.from && m.senderType!=="system")
+      ? `<button onclick="replyMail('${escapeHtml(m.id)}')" class="px-4 py-2 border border-white/10 rounded-lg text-xs uppercase tracking-widest hover:bg-white/10 whitespace-nowrap">Reply</button>` : "";
     const state = items.length
       ? (m.claimed?`<span class="text-emerald-400 text-xs">Claimed ✓</span>`
                   :`<span class="text-amber-400 text-xs">${items.length} item(s) to claim</span>`)
@@ -862,9 +867,21 @@ function renderMail(list){
         <span class="text-gray-600 text-[11px] ml-auto">${escapeHtml(when)}</span></div>
       <div class="font-bold text-white">${escapeHtml(m.subject||"(no subject)")}</div>
       ${m.body?`<p class="text-sm text-gray-400 mt-1 whitespace-pre-wrap">${escapeHtml(m.body)}</p>`:""}
-      <div class="flex items-center justify-between mt-3">${state}${claimBtn}</div>
+      <div class="flex items-center justify-end gap-2 mt-3">${state}${replyBtn}${claimBtn}</div>
     </div>`;
   }).join("");
+}
+// Pre-fill the compose box to reply to a message (works for GM mail too — the reply
+// is sent to whoever the GM's PlayFab ID is, as a normal player message).
+function replyMail(id){
+  const m=lastMail.find(x=>x && x.id===id); if(!m || !m.from) return;
+  const toEl=$("mailToId"), subEl=$("mailSubject"), bodyEl=$("mailBody"), compose=$("mailCompose");
+  if(toEl) toEl.value=m.from;
+  if(subEl){ const s=(m.subject||"").replace(/^\s*re:\s*/i,""); subEl.value="Re: "+(s||"(no subject)"); }
+  if(bodyEl) bodyEl.value="";
+  if(compose) compose.classList.remove("hidden");
+  if(compose && compose.scrollIntoView) compose.scrollIntoView({behavior:"smooth",block:"center"});
+  if(bodyEl) bodyEl.focus();
 }
 async function loadMail(){
   const lock=$("mailLock"), compose=$("mailCompose"), msg=$("mailMsg");
