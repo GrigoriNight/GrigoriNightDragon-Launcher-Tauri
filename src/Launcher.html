@@ -1449,9 +1449,12 @@ function renderAdminPlayers(list){
   box.innerHTML=list.map(function(p){
     const id=escapeHtml(p.PlayFabId||"");
     const nm=escapeHtml(p.DisplayName||"Unnamed");
+    const un=escapeHtml(p.Username||"");
+    const em=escapeHtml(p.Email||"");
+    const sub=[un&&("@"+un), em, id].filter(Boolean).join(" · ");
     return '<div class="flex items-center justify-between gap-2 border-b border-white/5 py-1">'
       +'<div class="min-w-0"><div class="text-gray-200 truncate">'+nm+'</div>'
-      +'<div class="text-gray-500 text-[10px] truncate">'+id+'</div></div>'
+      +'<div class="text-gray-500 text-[10px] truncate">'+sub+'</div></div>'
       +'<div class="flex gap-1 shrink-0">'
       +'<button onclick="adminFillBan(\''+id+'\')" class="px-2 py-1 border border-white/10 rounded hover:bg-white/10">Ban</button>'
       +'<button onclick="adminViewBans(\''+id+'\')" class="px-2 py-1 border border-white/10 rounded hover:bg-white/10">View bans</button>'
