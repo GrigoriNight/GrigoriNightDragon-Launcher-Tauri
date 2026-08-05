@@ -46,6 +46,7 @@
       <button id="tab-news"    onclick="showTab('news')">News</button>
       <button id="tab-store"   onclick="showTab('store')">Store</button>
       <button id="tab-mail"    onclick="showTab('mail')">Mail</button>
+      <button id="tab-guild"   onclick="showTab('guild')">Guild</button>
       <button id="tab-support" onclick="showTab('support')">Support</button>
     </div>
   </div>
@@ -170,6 +171,33 @@
         <button onclick="sendMail()" class="ob px-6">Send</button>
         <div id="mailSendMsg" class="text-[11px] text-amber-400"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- GUILD (view-only) -->
+  <div id="view-guild" class="hidden flex-1 ovf">
+    <div class="flex items-center justify-between mb-6 max-w-3xl">
+      <h1 class="text-3xl font-black uppercase tracking-widest">Guild</h1>
+      <button onclick="loadGuild()" class="px-3 py-1.5 border border-white/10 rounded-lg text-xs uppercase tracking-widest hover:bg-white/10">Refresh</button>
+    </div>
+    <div id="guildLock" class="hidden mb-4 px-4 py-2 rounded-lg bg-red-500/15 border border-red-500/40 text-red-300 text-xs">Sign in to view your guild.</div>
+    <div id="guildMsg" class="text-sm text-gray-400 mb-4"></div>
+    <div id="guildEmpty" class="hidden border border-white/10 rounded-xl p-6 max-w-3xl text-center">
+      <div class="text-4xl mb-3">🐉</div>
+      <h3 class="uppercase tracking-widest text-gray-300 text-sm mb-2">You're not in a guild</h3>
+      <p class="text-[12px] text-gray-500">Create or join a guild in-game. Your roster will appear here once you belong to one.</p>
+    </div>
+    <div id="guildCard" class="hidden max-w-3xl">
+      <div class="border border-white/10 rounded-xl p-5 mb-5 bg-white/[0.02]">
+        <div class="flex items-center gap-3 flex-wrap">
+          <h2 id="guildName" class="text-2xl font-black tracking-wide"></h2>
+          <span id="guildTag" class="hidden px-2 py-0.5 rounded bg-white/10 text-xs uppercase tracking-widest text-gray-300"></span>
+          <span id="guildCount" class="ml-auto text-xs uppercase tracking-widest text-gray-500"></span>
+        </div>
+        <p id="guildMotd" class="hidden mt-3 text-sm text-gray-400 whitespace-pre-line"></p>
+      </div>
+      <h3 class="uppercase tracking-widest text-gray-400 text-xs mb-3">Members</h3>
+      <div id="guildMembers" class="space-y-2 mb-8"></div>
     </div>
   </div>
 
@@ -518,13 +546,14 @@ function escapeHtml(s){ return String(s).replace(/[&<>"']/g,c=>({ "&":"&amp;","<
 // ---- tabs ---------------------------------------------------------------
 function tabClass(active){ return "px-1 py-1 text-sm uppercase tracking-widest border-b-2 transition " + (active?"border-red-500 text-white":"border-transparent text-gray-400 hover:text-white"); }
 function showTab(name){
-  ["play","news","store","mail","support"].forEach(t=>{
+  ["play","news","store","mail","guild","support"].forEach(t=>{
     $("view-"+t).classList.toggle("hidden", t!==name);
     $("tab-"+t).className = tabClass(t===name);
   });
   if(name==="store") loadStore();
   if(name==="news") loadGithubNews();
   if(name==="mail") loadMail();
+  if(name==="guild") loadGuild();
 }
 
 // ---- sound --------------------------------------------------------------
@@ -875,6 +904,60 @@ async function sendMail(){
     else { if(out) out.textContent="Send failed."; beep("error"); }
   }catch(e){ if(out) out.textContent="Send failed: "+(e.message||"error"); beep("error"); }
 }
+
+// ---- guild (view-only) --------------------------------------------------
+const GUILD_ROLES={ master:"Guild Master", officer:"Officer", veteran:"Veteran", member:"Member" };
+function guildRoleBadge(role){
+  const label=GUILD_ROLES[role]||"Member";
+  const cls={
+    master:"bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold",
+    officer:"bg-violet-500/20 text-violet-300 border border-violet-500/40",
+    veteran:"bg-red-500/20 text-red-300 border border-red-500/40",
+    member:"bg-white/10 text-gray-300"
+  }[role]||"bg-white/10 text-gray-300";
+  return `<span class="px-2 py-0.5 rounded text-[10px] uppercase tracking-widest ${cls}">${escapeHtml(label)}</span>`;
+}
+function guildSection(show){
+  const lock=$("guildLock"), empty=$("guildEmpty"), card=$("guildCard");
+  if(lock) lock.classList.toggle("hidden", show!=="lock");
+  if(empty) empty.classList.toggle("hidden", show!=="empty");
+  if(card) card.classList.toggle("hidden", show!=="card");
+}
+function renderGuild(g){
+  const name=$("guildName"), tag=$("guildTag"), count=$("guildCount"), motd=$("guildMotd"), box=$("guildMembers");
+  const gu=g.guild||{};
+  if(name) name.textContent=gu.name||"Guild";
+  if(tag){ if(gu.tag){ tag.textContent="["+gu.tag+"]"; tag.classList.remove("hidden"); } else tag.classList.add("hidden"); }
+  if(count) count.textContent=(g.memberCount||0)+" member"+((g.memberCount===1)?"":"s");
+  if(motd){ if(gu.motd){ motd.textContent=gu.motd; motd.classList.remove("hidden"); } else motd.classList.add("hidden"); }
+  if(box){
+    const list=g.members||[];
+    box.innerHTML=list.length ? list.map(m=>{
+      const you=(saved.account&&m.id===saved.account.playFabId)?`<span class="text-[10px] text-emerald-400 uppercase tracking-widest">You</span>`:"";
+      return `<div class="flex items-center gap-3 border border-white/10 rounded-lg px-4 py-2">
+        <span class="font-semibold">${escapeHtml(m.name||"Unknown")}</span>
+        ${you}
+        <span class="ml-auto">${guildRoleBadge(m.role||"member")}</span>
+      </div>`;
+    }).join("") : `<div class="text-sm text-gray-500">No members listed.</div>`;
+  }
+  guildSection("card");
+}
+async function loadGuild(){
+  const msg=$("guildMsg");
+  if(!loggedIn()){ guildSection("lock"); if(msg) msg.textContent=""; return; }
+  if(msg) msg.textContent="Loading…";
+  guildSection("none");
+  try{
+    const r=await mailCloud("getGuild",{});
+    if(msg) msg.textContent="";
+    if(!r || !r.inGuild){ guildSection("empty"); return; }
+    renderGuild(r);
+  }catch(e){
+    guildSection("none");
+    if(msg) msg.textContent="Guild service unavailable — deploy CloudScript. ("+(e.message||"error")+")";
+  }
+}
 function authTab(which){ const login=which==="login";
   if($("formVerify")) $("formVerify").classList.add("hidden");
   if($("authTabs")) $("authTabs").classList.remove("hidden");
@@ -890,7 +973,7 @@ async function doLogin(){
   const id=$("loginId").value.trim(), pw=$("loginPass").value;
   if(!id||!pw){ loginError("Enter your email/username and password."); beep("error"); return; }
   setAuthBusy(true); loginError("");
-  try{ saved.account=await pfLogin(id,pw); persist(saved); await claimSession(); startSessionGuard(); $("loginPass").value=""; renderAccount(); beep("login"); loadProfile(); refreshLive(); setTimeout(closeAccount,600); }
+  try{ saved.account=await pfLogin(id,pw); persist(saved); await claimSession(); startSessionGuard(); $("loginPass").value=""; renderAccount(); beep("login"); loadProfile(); refreshLive(); if($("view-guild")&&!$("view-guild").classList.contains("hidden")) loadGuild(); setTimeout(closeAccount,600); }
   catch(e){ if(isBanError(e)){ showBanNotice(banDetailFromError(e)); } else { loginError(friendlyAuthError(e)); beep("error"); } } finally{ setAuthBusy(false); }
 }
 async function doRegister(){
@@ -902,7 +985,7 @@ async function doRegister(){
   setAuthBusy(true); loginError("");
   try{
     saved.account=await pfRegister(u,em,pw); saved.account.email=em; persist(saved);
-    await claimSession(); startSessionGuard(); $("regPass").value=""; renderAccount(); beep("login"); loadProfile(); refreshLive();
+    await claimSession(); startSessionGuard(); $("regPass").value=""; renderAccount(); beep("login"); loadProfile(); refreshLive(); if($("view-guild")&&!$("view-guild").classList.contains("hidden")) loadGuild();
     showVerifyView(em);
     $("verifyMsg").textContent="Sending code…";
     try{ const r=await sendEmailCodeFor(em); const fr=r&&r.FunctionResult;
@@ -960,7 +1043,7 @@ async function startVerifyFromAccount(){
       :("Couldn't email a code"+(fr&&fr.error?(" ("+fr.error+")"):"")+"."); }
   catch(e){ $("verifyMsg").textContent="Couldn't email a code."; }
 }
-function doLogout(){ saved.account=null; persist(saved); storeLoaded=false; isAdmin=false; maintenance={on:false}; applyMaintenance(); if($("storeGrid")) $("storeGrid").innerHTML=""; renderAccount(); beep(); loadStore(true); }
+function doLogout(){ saved.account=null; persist(saved); storeLoaded=false; isAdmin=false; maintenance={on:false}; applyMaintenance(); if($("storeGrid")) $("storeGrid").innerHTML=""; if($("guildMembers")) $("guildMembers").innerHTML=""; if(typeof guildSection==="function") guildSection("lock"); renderAccount(); beep(); loadStore(true); }
 
 
 async function loadProfile(){
