@@ -30,11 +30,6 @@
     return invoke("self_update", { payload: payload });
   };
 
-  // Download + unzip the game into the launcher's own data folder (Rust side)
-  window.__GND_DOWNLOAD__ = function (payload) {
-    return invoke("download_game", { payload: payload });
-  };
-
   // Read the last game run's captured stdout/stderr + exit code (for bug reports)
   window.__GND_CRASHLOG__ = function () {
     return invoke("read_crash_log", {});

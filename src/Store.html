@@ -418,7 +418,7 @@ async function buyItem(itemId){
       throw new Error(detail);
     }
     const r=data.FunctionResult||{};
-    if(r.success){ msg.textContent="Purchased ✔"; beep("login"); }
+    if(r.success){ msg.textContent="Sent to your mailbox ✔ — claim it in the launcher's Mail tab."; beep("login"); }
     else if(r.reason==="maintenance"){ msg.textContent="The store is closed during maintenance."; beep("error"); }
     else if(r.reason==="limited"){ msg.textContent="This is a Limited Edition — one per account, and you already own it."; beep("error"); }
     else if(r.reason==="cooldown"){ msg.textContent="You already own this — you can buy it again in "+(r.daysRemaining||0)+" day(s)."; beep("error"); }

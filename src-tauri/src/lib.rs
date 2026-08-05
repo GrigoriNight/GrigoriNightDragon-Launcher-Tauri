@@ -33,21 +33,26 @@ struct UpdatePayload {
 
 #[cfg(not(target_os = "android"))]
 fn resolve_exe(app: &tauri::AppHandle, exe_name: &str) -> Option<PathBuf> {
-    let name = if exe_name.is_empty() { "GameLauncher.exe" } else { exe_name };
+    // The packaged UE5 game ships inside the launcher's bundled `game/` folder
+    // (tauri.conf.json bundles ../game/*). exe_name may be a plain file name
+    // ("GNDPlayFab.exe") or a relative subpath ("Windows/GNDPlayFab.exe").
+    let name = if exe_name.is_empty() { "GNDPlayFab.exe" } else { exe_name };
     let mut candidates: Vec<PathBuf> = Vec::new();
-    // Where download_game unzips the game — checked first so Play finds it.
-    if let Ok(data) = app.path().app_local_data_dir() {
-        candidates.push(data.join("game").join(name));
-    }
+    // Bundled game files — the source of truth now that we no longer download.
     if let Ok(res) = app.path().resource_dir() {
         candidates.push(res.join("game").join(name));
         candidates.push(res.join(name));
     }
+    // Next to the launcher exe (dev / portable layout).
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
             candidates.push(dir.join("game").join(name));
             candidates.push(dir.join(name));
         }
+    }
+    // Optional writable override (a future in-place patch dropped here wins last).
+    if let Ok(data) = app.path().app_local_data_dir() {
+        candidates.push(data.join("game").join(name));
     }
     candidates.into_iter().find(|p| p.exists())
 }
@@ -60,7 +65,7 @@ fn launch_game(app: tauri::AppHandle, payload: LaunchPayload) -> Result<(), Stri
     #[cfg(not(target_os = "android"))]
     {
         let exe = resolve_exe(&app, &payload.exe)
-            .ok_or_else(|| format!("Couldn't find {} — install the game first.", if payload.exe.is_empty() { "GameLauncher.exe" } else { &payload.exe }))?;
+            .ok_or_else(|| format!("Couldn't find {} in the bundled game files.", if payload.exe.is_empty() { "GNDPlayFab.exe" } else { &payload.exe }))?;
         let workdir = exe.parent().map(|p| p.to_path_buf());
         // Where the captured game output is written, for the bug reporter to attach.
         let log_path = app.path().app_local_data_dir().ok().map(|d| d.join("last-run.log"));
@@ -138,52 +143,6 @@ fn self_update(_app: tauri::AppHandle, payload: UpdatePayload) -> Result<(), Str
     }
 }
 
-/// Download the game zip and unzip it into the launcher's own writable data
-/// folder (app_local_data_dir/game). resolve_exe checks that same folder first,
-/// so Play always finds what Install downloaded.
-#[tauri::command]
-fn download_game(app: tauri::AppHandle, payload: UpdatePayload) -> Result<String, String> {
-    #[cfg(target_os = "android")]
-    return Err("Game download is not supported on Android.".into());
-
-    #[cfg(not(target_os = "android"))]
-    {
-        if payload.url.is_empty() { return Err("No download URL provided.".into()); }
-        let dest = app
-            .path()
-            .app_local_data_dir()
-            .map_err(|e| e.to_string())?
-            .join("game");
-        std::fs::create_dir_all(&dest).map_err(|e| e.to_string())?;
-
-        // ureq follows GitHub's redirect to the release CDN; read fully (~3MB today).
-        let resp = ureq::get(&payload.url).call().map_err(|e| e.to_string())?;
-        let mut bytes = Vec::new();
-        resp.into_reader().read_to_end(&mut bytes).map_err(|e| e.to_string())?;
-
-        // Unzip into dest, overwriting. enclosed_name() blocks path traversal.
-        let mut archive = zip::ZipArchive::new(std::io::Cursor::new(bytes))
-            .map_err(|e| e.to_string())?;
-        for i in 0..archive.len() {
-            let mut entry = archive.by_index(i).map_err(|e| e.to_string())?;
-            let out = match entry.enclosed_name() {
-                Some(p) => dest.join(p),
-                None => continue,
-            };
-            if entry.is_dir() {
-                std::fs::create_dir_all(&out).ok();
-            } else {
-                if let Some(parent) = out.parent() {
-                    std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-                }
-                let mut w = std::fs::File::create(&out).map_err(|e| e.to_string())?;
-                std::io::copy(&mut entry, &mut w).map_err(|e| e.to_string())?;
-            }
-        }
-        Ok(dest.to_string_lossy().into_owned())
-    }
-}
-
 #[cfg(not(target_os = "android"))]
 fn open_url(url: &str) -> Result<(), String> {
     #[cfg(target_os = "windows")]
@@ -227,7 +186,6 @@ pub fn run() {
             hide_launcher,
             show_launcher,
             self_update,
-            download_game,
             read_crash_log
         ])
         .run(tauri::generate_context!())

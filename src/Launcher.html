@@ -45,6 +45,7 @@
       <button id="tab-play"    onclick="showTab('play')">Play</button>
       <button id="tab-news"    onclick="showTab('news')">News</button>
       <button id="tab-store"   onclick="showTab('store')">Store</button>
+      <button id="tab-mail"    onclick="showTab('mail')">Mail</button>
       <button id="tab-support" onclick="showTab('support')">Support</button>
     </div>
   </div>
@@ -150,6 +151,28 @@
     </div>
   </div>
 
+  <!-- MAIL -->
+  <div id="view-mail" class="hidden flex-1 ovf">
+    <div class="flex items-center justify-between mb-6 max-w-3xl">
+      <h1 class="text-3xl font-black uppercase tracking-widest">Mail</h1>
+      <button onclick="loadMail()" class="px-3 py-1.5 border border-white/10 rounded-lg text-xs uppercase tracking-widest hover:bg-white/10">Refresh</button>
+    </div>
+    <div id="mailLock" class="hidden mb-4 px-4 py-2 rounded-lg bg-red-500/15 border border-red-500/40 text-red-300 text-xs">Sign in to view your mailbox.</div>
+    <div id="mailMsg" class="text-sm text-gray-400 mb-4"></div>
+    <div id="mailList" class="space-y-3 max-w-3xl mb-8"></div>
+    <div id="mailCompose" class="hidden border border-white/10 rounded-xl p-4 max-w-3xl">
+      <h3 class="uppercase tracking-widest text-gray-400 text-xs mb-3">Send mail to a player</h3>
+      <p class="text-[11px] text-gray-500 mb-3">Text only — you can't attach items. Enter the recipient's PlayFab ID.</p>
+      <input id="mailToId" class="field" style="margin:0 0 8px" placeholder="Recipient PlayFab ID"/>
+      <input id="mailSubject" class="field" style="margin:0 0 8px" maxlength="120" placeholder="Subject"/>
+      <textarea id="mailBody" rows="3" class="field" style="margin:0 0 8px;resize:vertical" maxlength="2000" placeholder="Message"></textarea>
+      <div class="flex items-center gap-3">
+        <button onclick="sendMail()" class="ob px-6">Send</button>
+        <div id="mailSendMsg" class="text-[11px] text-amber-400"></div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- BOTTOM STATUS BAR -->
@@ -228,6 +251,26 @@
         <div id="adminPlayers" class="text-xs text-gray-400 max-h-48 overflow-y-auto space-y-1"></div>
         <div id="adminBanList" class="text-xs text-gray-300 mt-2"></div>
         <div id="adminBanMsg" class="text-[11px] text-amber-400 mt-2"></div>
+      </div>
+      <div class="border border-white/10 rounded-xl p-4 mt-5">
+        <h3 class="uppercase tracking-widest text-gray-400 text-xs mb-2">Send GM mail</h3>
+        <p class="text-[11px] text-gray-500 mb-3">Sends official mail (shown with the GND-GM badge) to a player. Optionally attach one item by its catalog Item ID — the player claims it from their mailbox.</p>
+        <div class="grid grid-cols-1 gap-2 mb-2">
+          <input id="gmMailToId" class="field" style="margin:0" placeholder="Target PlayFab ID"/>
+          <input id="gmMailSubject" class="field" style="margin:0" maxlength="120" placeholder="Subject"/>
+          <textarea id="gmMailBody" rows="2" class="field" style="margin:0;resize:vertical" maxlength="2000" placeholder="Message"></textarea>
+          <input id="gmMailItemId" class="field" style="margin:0" placeholder="Attach Item ID (optional)"/>
+          <button onclick="adminSendGmMail()" class="ob px-5 whitespace-nowrap">Send GM mail</button>
+        </div>
+        <div id="gmMailMsg" class="text-[11px] text-amber-400 mt-1"></div>
+      </div>
+      <div class="border border-white/10 rounded-xl p-4 mt-5">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="uppercase tracking-widest text-gray-400 text-xs">Mail delivery alerts</h3>
+          <button onclick="adminLoadAlerts()" class="px-3 py-1 border border-white/10 rounded-lg text-xs hover:bg-white/10">Refresh</button>
+        </div>
+        <p class="text-[11px] text-gray-500 mb-3">Failed item deliveries/claims are flagged here so a lost purchase never goes unnoticed.</p>
+        <div id="adminAlerts" class="text-xs text-gray-300 space-y-2"></div>
       </div>
     </div>
     <div class="flex gap-3 mt-5">
@@ -436,7 +479,7 @@ const CONFIG = {
   emailjsService:   "service_cgr7tvo",      // EmailJS service ID
   emailjsTemplate:  "template_by4ls5g",      // EmailJS template ID
   launcherUrl: "https://github.com/GrigoriNight/GrigoriNightDragon-Launcher-Tauri/releases/download/latest-build/GrigoriNightDragon-Setup.exe",   // direct URL to the launcher update file; downloaded with live progress when launcherVersion changes
-  gameExe: "GameLauncher.exe",   // executable the desktop shell launches on Play
+  gameExe: "GNDPlayFab.exe",   // the packaged UE5 game exe, run from the bundled game/ folder. Set to your real name (e.g. "Windows/GNDPlayFab.exe" if it sits in a subfolder).
   musicUrl: "https://img1.wsimg.com/blobby/go/4eb53488-7334-42b7-9c77-28becd180ebc/downloads/4cffe538-dcd7-40bf-8cc7-2a6667083f69/Untitled%20(3).mp3?ver=1784667822476"   // background music track
 };
 const LAUNCHER_VERSION = "1.0.0";   // bump this when you deploy a new launcher build
@@ -475,12 +518,13 @@ function escapeHtml(s){ return String(s).replace(/[&<>"']/g,c=>({ "&":"&amp;","<
 // ---- tabs ---------------------------------------------------------------
 function tabClass(active){ return "px-1 py-1 text-sm uppercase tracking-widest border-b-2 transition " + (active?"border-red-500 text-white":"border-transparent text-gray-400 hover:text-white"); }
 function showTab(name){
-  ["play","news","store","support"].forEach(t=>{
+  ["play","news","store","mail","support"].forEach(t=>{
     $("view-"+t).classList.toggle("hidden", t!==name);
     $("tab-"+t).className = tabClass(t===name);
   });
   if(name==="store") loadStore();
   if(name==="news") loadGithubNews();
+  if(name==="mail") loadMail();
 }
 
 // ---- sound --------------------------------------------------------------
@@ -743,7 +787,7 @@ async function buyItem(itemId){
       throw new Error(detail);
     }
     const r=data.FunctionResult||{};
-    if(r.success){ msg.textContent="Purchased ✔"; beep("login"); }
+    if(r.success){ msg.textContent="Sent to your mailbox ✔ — claim it in the Mail tab."; beep("login"); }
     else if(r.reason==="maintenance"){ msg.textContent="The store is closed during maintenance."; beep("error"); }
     else if(r.reason==="limited"){ msg.textContent="This is a Limited Edition — one per account, and you already own it."; beep("error"); }
     else if(r.reason==="cooldown"){ msg.textContent="You already own this — you can buy it again in "+(r.daysRemaining||0)+" day(s)."; beep("error"); }
@@ -753,6 +797,84 @@ async function buyItem(itemId){
   }catch(e){ msg.textContent="Purchase failed: "+(e.message||"error"); beep("error"); await loadWallet(); renderStore(); }
 }
 
+// ---- mail ---------------------------------------------------------------
+async function mailCloud(fn, params){
+  const data=await pfAuth("/Client/ExecuteCloudScript",{
+    FunctionName:fn, FunctionParameter:params||{}, GeneratePlayStreamEvent:false });
+  if(data.Error){
+    let detail=data.Error.Message||data.Error.Error||"CloudScript error";
+    if(data.Error.StackTrace){ const m=String(data.Error.StackTrace).split("\n")[0]; if(m) detail=m; }
+    throw new Error(detail);
+  }
+  return data.FunctionResult||{};
+}
+function mailSenderBadge(m){
+  if(m.senderType==="gm")
+    return `<span class="px-2 py-0.5 rounded bg-gradient-to-r from-amber-500 to-yellow-500 text-black text-[10px] font-bold uppercase tracking-widest">★ GND-GM</span>`;
+  if(m.senderType==="system")
+    return `<span class="px-2 py-0.5 rounded bg-white/10 text-gray-300 text-[10px] uppercase tracking-widest">System</span>`;
+  return `<span class="px-2 py-0.5 rounded bg-white/10 text-gray-300 text-[10px] uppercase tracking-widest">Player</span>`;
+}
+function renderMail(list){
+  const box=$("mailList"); if(!box) return;
+  if(!list || !list.length){ box.innerHTML=`<div class="text-sm text-gray-500">Your mailbox is empty.</div>`; return; }
+  box.innerHTML=list.map(m=>{
+    const items=(m.items||[]);
+    const when=m.createdAt?new Date(m.createdAt).toLocaleString():"";
+    const claimBtn = (items.length && !m.claimed)
+      ? `<button onclick="claimMail('${escapeHtml(m.id)}')" class="ob px-5 whitespace-nowrap">Claim</button>` : "";
+    const state = items.length
+      ? (m.claimed?`<span class="text-emerald-400 text-xs">Claimed ✓</span>`
+                  :`<span class="text-amber-400 text-xs">${items.length} item(s) to claim</span>`)
+      : "";
+    const fromLine = m.fromName?`<span class="text-gray-500 text-xs">from ${escapeHtml(m.fromName)}</span>`:"";
+    return `<div class="border border-white/10 rounded-xl p-4">
+      <div class="flex items-center gap-2 mb-1">${mailSenderBadge(m)} ${fromLine}
+        <span class="text-gray-600 text-[11px] ml-auto">${escapeHtml(when)}</span></div>
+      <div class="font-bold text-white">${escapeHtml(m.subject||"(no subject)")}</div>
+      ${m.body?`<p class="text-sm text-gray-400 mt-1 whitespace-pre-wrap">${escapeHtml(m.body)}</p>`:""}
+      <div class="flex items-center justify-between mt-3">${state}${claimBtn}</div>
+    </div>`;
+  }).join("");
+}
+async function loadMail(){
+  const lock=$("mailLock"), compose=$("mailCompose"), msg=$("mailMsg");
+  if(!loggedIn()){ if(lock) lock.classList.remove("hidden"); if(compose) compose.classList.add("hidden"); renderMail([]); if(msg) msg.textContent=""; return; }
+  if(lock) lock.classList.add("hidden");
+  if(compose) compose.classList.remove("hidden");
+  if(msg) msg.textContent="Loading…";
+  try{
+    const r=await mailCloud("Mail_Get",{});
+    renderMail(r.mail||[]);
+    if(msg) msg.textContent="";
+  }catch(e){ if(msg) msg.textContent="Couldn't load mail: "+(e.message||"error"); }
+}
+async function claimMail(id){
+  const msg=$("mailMsg");
+  try{
+    if(msg) msg.textContent="Claiming…";
+    const r=await mailCloud("Mail_Claim",{ id:id });
+    if(r.success){ if(msg) msg.textContent="Claimed ✔"; beep("login"); renderMail(r.mail||[]); await loadWallet(); if(typeof renderStore==="function"&&storeLoaded) renderStore(); }
+    else if(r.reason==="claimed"){ if(msg) msg.textContent="Already claimed."; beep("error"); await loadMail(); }
+    else if(r.reason==="grant_failed"){ if(msg) msg.textContent="Item couldn't be delivered — an admin has been alerted. Please try again later."; beep("error"); }
+    else { if(msg) msg.textContent="Claim failed."; beep("error"); }
+  }catch(e){ if(msg) msg.textContent="Claim failed: "+(e.message||"error"); beep("error"); }
+}
+async function sendMail(){
+  const out=$("mailSendMsg");
+  const to=($("mailToId").value||"").trim();
+  const subject=($("mailSubject").value||"").trim();
+  const body=($("mailBody").value||"").trim();
+  if(!to){ if(out) out.textContent="Enter a recipient PlayFab ID."; return; }
+  try{
+    if(out) out.textContent="Sending…";
+    const r=await mailCloud("Mail_Send",{ toPlayFabId:to, subject:subject, body:body, fromName:(saved.account?saved.account.name:"") });
+    if(r.success){ if(out) out.textContent="Sent ✔"; beep("login"); $("mailSubject").value=""; $("mailBody").value=""; }
+    else if(r.reason==="self"){ if(out) out.textContent="You can't mail yourself."; beep("error"); }
+    else if(r.reason==="no_recipient"){ if(out) out.textContent="Enter a recipient PlayFab ID."; beep("error"); }
+    else { if(out) out.textContent="Send failed."; beep("error"); }
+  }catch(e){ if(out) out.textContent="Send failed: "+(e.message||"error"); beep("error"); }
+}
 function authTab(which){ const login=which==="login";
   if($("formVerify")) $("formVerify").classList.add("hidden");
   if($("authTabs")) $("authTabs").classList.remove("hidden");
@@ -1080,6 +1202,9 @@ async function openAdmin(){
   $("adminMsg").textContent="";
   ["adminPlayers","adminBanList","adminBanMsg"].forEach(id=>{ if($(id)) $(id).innerHTML=""; });
   ["banTargetId","banTargetReason","banTargetDays"].forEach(id=>{ if($(id)) $(id).value=""; });
+  ["gmMailToId","gmMailSubject","gmMailBody","gmMailItemId"].forEach(id=>{ if($(id)) $(id).value=""; });
+  if($("gmMailMsg")) $("gmMailMsg").textContent="";
+  adminLoadAlerts();
   $("adminModal").classList.remove("hidden");
   if(!storeLoaded){ try{ await loadStore(); }catch(e){} }
   renderLimitedAdmin();
@@ -1163,6 +1288,47 @@ async function adminCloud(fn, params){
   const r=await pfAuth("/Client/ExecuteCloudScript",{ FunctionName:fn, FunctionParameter:params||{}, GeneratePlayStreamEvent:false });
   if(r.Error) throw new Error(r.Error.Message||r.Error.Error||"CloudScript error");
   return r.FunctionResult;
+}
+// ---- admin: GM mail + delivery alerts -----------------------------------
+async function adminSendGmMail(){
+  if(!isAdmin) return;
+  const out=$("gmMailMsg");
+  const to=($("gmMailToId").value||"").trim();
+  const subject=($("gmMailSubject").value||"").trim();
+  const body=($("gmMailBody").value||"").trim();
+  const itemId=($("gmMailItemId").value||"").trim();
+  if(!to){ if(out) out.textContent="Enter a target PlayFab ID."; return; }
+  const params={ toPlayFabId:to, subject:subject, body:body };
+  if(itemId){ params.itemId=itemId; params.catalogVersion=CONFIG.playfabCatalog; }
+  try{
+    if(out) out.textContent="Sending…";
+    const r=await adminCloud("Mail_AdminSend", params);
+    if(r&&r.success){ if(out){ out.className="text-[11px] text-emerald-400 mt-1"; out.textContent="Sent ✔"; } beep("login"); $("gmMailSubject").value=""; $("gmMailBody").value=""; $("gmMailItemId").value=""; }
+    else { if(out){ out.className="text-[11px] text-amber-400 mt-1"; out.textContent="Failed: "+((r&&r.reason)||"error"); } beep("error"); }
+  }catch(e){ if(out){ out.className="text-[11px] text-amber-400 mt-1"; out.textContent="Failed: "+(e.message||"error"); } beep("error"); }
+}
+async function adminLoadAlerts(){
+  if(!isAdmin) return;
+  const box=$("adminAlerts"); if(!box) return;
+  box.textContent="Loading…";
+  try{
+    const r=await adminCloud("Mail_GetAdminAlerts",{});
+    const alerts=(r&&r.alerts)||[];
+    if(!alerts.length){ box.innerHTML=`<div class="text-gray-500">No delivery alerts.</div>`; return; }
+    box.innerHTML=alerts.map(a=>{
+      const when=a.at?new Date(a.at).toLocaleString():"";
+      return `<div class="border border-amber-500/30 rounded-lg p-2 flex items-start justify-between gap-2">
+        <div><div class="text-amber-300">${escapeHtml(a.reason||"delivery failed")}</div>
+        <div class="text-gray-500 text-[11px]">player ${escapeHtml(a.playFabId||"?")} · items ${escapeHtml((a.itemIds||[]).join(", "))} · ${escapeHtml(when)}</div></div>
+        <button onclick="adminClearAlert('${escapeHtml(a.id)}')" class="px-2 py-1 border border-white/10 rounded text-[11px] hover:bg-white/10 whitespace-nowrap">Clear</button>
+      </div>`;
+    }).join("");
+  }catch(e){ box.textContent="Couldn't load alerts: "+(e.message||"error"); }
+}
+async function adminClearAlert(id){
+  if(!isAdmin) return;
+  try{ await adminCloud("Mail_ClearAdminAlert",{ id:id }); beep(); adminLoadAlerts(); }
+  catch(e){ const box=$("adminAlerts"); if(box) box.textContent="Clear failed: "+(e.message||"error"); }
 }
 function adminFillBan(id){ if($("banTargetId")) $("banTargetId").value=id; if($("banTargetReason")) $("banTargetReason").focus(); }
 async function adminBanById(){
@@ -1249,8 +1415,9 @@ function fmtTime(s){ if(!isFinite(s)||s<0)return"--"; s=Math.round(s); const h=M
 
 // ---- state machine ------------------------------------------------------
 function applyState(){
-  const installed=!!saved.installedVersion;
-  const updateAvailable=installed && latestVersion && String(latestVersion)!==String(saved.installedVersion);
+  const bundled=!!window.__GND_LAUNCH__;               // desktop app: the game ships inside the launcher's game files — no download
+  const installed=bundled||!!saved.installedVersion;
+  const updateAvailable=!bundled && installed && latestVersion && String(latestVersion)!==String(saved.installedVersion);
   const primary=!installed?"install":(updateAvailable?"update":"play");
   ["installBtn","playBtn","updateBtn"].forEach(id=>$(id).classList.add("hidden"));
   $({install:"installBtn",update:"updateBtn",play:"playBtn"}[primary]).classList.remove("hidden");
