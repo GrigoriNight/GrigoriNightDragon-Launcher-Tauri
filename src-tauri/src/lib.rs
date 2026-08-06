@@ -8,6 +8,8 @@ use std::io::Read;
 #[cfg(not(target_os = "android"))]
 use std::process::Stdio;
 use tauri::Manager;
+#[cfg(not(target_os = "android"))]
+use tauri::Emitter;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -78,6 +80,11 @@ fn launch_game(app: tauri::AppHandle, payload: LaunchPayload) -> Result<(), Stri
             .stderr(Stdio::piped());
         if let Some(dir) = workdir { cmd.current_dir(dir); }
         let mut child = cmd.spawn().map_err(|e| format!("Failed to launch: {e}"))?;
+        // Tell the webview the game is live so it can report in-game presence to
+        // the guild (heartbeat source "game"); a matching "game-exited" fires when
+        // the process ends. The launcher webview keeps running JS while hidden.
+        let _ = app.emit("game-started", ());
+        let app_evt = app.clone();
         // Drain stdout/stderr on separate threads (a single sequential reader can
         // deadlock if the game fills the other pipe); a waiter thread then records
         // the exit code + captured output to last-run.log when the game closes.
@@ -87,6 +94,7 @@ fn launch_game(app: tauri::AppHandle, payload: LaunchPayload) -> Result<(), Stri
         let h_err = std::thread::spawn(move || { let mut s = String::new(); if let Some(ref mut r) = err { let _ = r.read_to_string(&mut s); } s });
         std::thread::spawn(move || {
             let status = child.wait();
+            let _ = app_evt.emit("game-exited", ());
             let so = h_out.join().unwrap_or_default();
             let se = h_err.join().unwrap_or_default();
             if let Some(path) = log_path {

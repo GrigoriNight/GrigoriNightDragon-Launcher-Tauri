@@ -946,6 +946,21 @@ function guildRoleBadge(role){
   }[role]||"bg-white/10 text-gray-300";
   return `<span class="px-2 py-0.5 rounded text-[10px] uppercase tracking-widest ${cls}">${escapeHtml(label)}</span>`;
 }
+// Presence: server marks a member online (with a source) if their heartbeat is
+// recent. "game" = actually in-game; "launcher" = launcher/web open only.
+function guildPresenceInfo(m){
+  if(m&&m.online){
+    if(m.presence==="game") return {dot:"#22c55e", label:"In-game", cls:"text-emerald-400"};
+    return {dot:"#f59e0b", label:"Online", cls:"text-amber-400"};
+  }
+  return {dot:"#6b7280", label:"Offline", cls:"text-gray-500"};
+}
+function guildPresenceBadge(m){
+  const p=guildPresenceInfo(m);
+  return `<span class="flex items-center gap-1.5 text-[10px] uppercase tracking-widest ${p.cls}">`
+    + `<span style="width:8px;height:8px;border-radius:9999px;background:${p.dot};display:inline-block;`
+    + (m&&m.online?`box-shadow:0 0 6px ${p.dot}`:``)+`"></span>${p.label}</span>`;
+}
 function guildSection(show){
   const lock=$("guildLock"), empty=$("guildEmpty"), card=$("guildCard");
   if(lock) lock.classList.toggle("hidden", show!=="lock");
@@ -957,7 +972,7 @@ function renderGuild(g){
   const gu=g.guild||{};
   if(name) name.textContent=gu.name||"Guild";
   if(tag){ if(gu.tag){ tag.textContent="["+gu.tag+"]"; tag.classList.remove("hidden"); } else tag.classList.add("hidden"); }
-  if(count) count.textContent=(g.memberCount||0)+" member"+((g.memberCount===1)?"":"s");
+  if(count){ const onCount=(g.members||[]).filter(m=>m&&m.online).length; count.textContent=onCount+" / "+(g.memberCount||0)+" online"; }
   if(motd){ if(gu.motd){ motd.textContent=gu.motd; motd.classList.remove("hidden"); } else motd.classList.add("hidden"); }
   if(box){
     const list=g.members||[];
@@ -966,7 +981,7 @@ function renderGuild(g){
       return `<div class="flex items-center gap-3 border border-white/10 rounded-lg px-4 py-2">
         <span class="font-semibold">${escapeHtml(m.name||"Unknown")}</span>
         ${you}
-        <span class="ml-auto">${guildRoleBadge(m.role||"member")}</span>
+        <span class="ml-auto flex items-center gap-3">${guildPresenceBadge(m)}${guildRoleBadge(m.role||"member")}</span>
       </div>`;
     }).join("") : `<div class="text-sm text-gray-500">No members listed.</div>`;
   }
@@ -988,6 +1003,42 @@ async function loadGuild(){
     guildSection("none");
     if(msg) msg.textContent="Guild service unavailable — deploy CloudScript. ("+(e.message||"error")+")";
   }
+}
+// Lightweight roster refresh (updates online dots without disturbing chat).
+async function refreshGuildRoster(){
+  if(!loggedIn()) return;
+  const v=$("view-guild"); if(!v || v.classList.contains("hidden")) return;
+  try{ const r=await mailCloud("getGuild",{}); if(r && r.inGuild) renderGuild(r); }catch(e){}
+}
+// ---- presence heartbeat -------------------------------------------------
+// One heartbeat loop drives all three "online" sources. gameRunning is flipped
+// by the desktop game-started/exited events (see initGamePresenceEvents); when
+// true the heartbeat reports source "game" (real in-game), otherwise "launcher"
+// (launcher/web open). The UE5 game can also call guildHeartbeat{source:"game"}
+// directly for players who start it outside the launcher.
+let presenceTimer=null, gameRunning=false, gamePresenceWired=false;
+function stopPresence(){ if(presenceTimer){ clearInterval(presenceTimer); presenceTimer=null; } }
+async function sendHeartbeat(){
+  if(!loggedIn()) return;
+  try{ await mailCloud("guildHeartbeat",{source: gameRunning?"game":"launcher"}); }catch(e){}
+}
+function startPresence(){
+  stopPresence();
+  if(!loggedIn()) return;
+  sendHeartbeat();               // announce immediately
+  presenceTimer=setInterval(()=>{
+    if(!loggedIn()){ stopPresence(); return; }
+    sendHeartbeat();
+    refreshGuildRoster();        // keep visible dots fresh
+  }, 60000);
+}
+function initGamePresenceEvents(){
+  if(gamePresenceWired) return;
+  const ev=window.__TAURI__ && window.__TAURI__.event;
+  if(!ev) return;               // web build: no game process, stays "launcher"
+  gamePresenceWired=true;
+  ev.listen('game-started', ()=>{ gameRunning=true;  sendHeartbeat(); });
+  ev.listen('game-exited',  ()=>{ gameRunning=false; sendHeartbeat(); });
 }
 // ---- guild chat ---------------------------------------------------------
 let guildChatTimer=null;
@@ -1051,7 +1102,7 @@ async function doLogin(){
   const id=$("loginId").value.trim(), pw=$("loginPass").value;
   if(!id||!pw){ loginError("Enter your email/username and password."); beep("error"); return; }
   setAuthBusy(true); loginError("");
-  try{ saved.account=await pfLogin(id,pw); persist(saved); await claimSession(); startSessionGuard(); $("loginPass").value=""; renderAccount(); beep("login"); loadProfile(); refreshLive(); if($("view-guild")&&!$("view-guild").classList.contains("hidden")) loadGuild(); setTimeout(closeAccount,600); }
+  try{ saved.account=await pfLogin(id,pw); persist(saved); await claimSession(); startSessionGuard(); startPresence(); $("loginPass").value=""; renderAccount(); beep("login"); loadProfile(); refreshLive(); if($("view-guild")&&!$("view-guild").classList.contains("hidden")) loadGuild(); setTimeout(closeAccount,600); }
   catch(e){ if(isBanError(e)){ showBanNotice(banDetailFromError(e)); } else { loginError(friendlyAuthError(e)); beep("error"); } } finally{ setAuthBusy(false); }
 }
 async function doRegister(){
@@ -1063,7 +1114,7 @@ async function doRegister(){
   setAuthBusy(true); loginError("");
   try{
     saved.account=await pfRegister(u,em,pw); saved.account.email=em; persist(saved);
-    await claimSession(); startSessionGuard(); $("regPass").value=""; renderAccount(); beep("login"); loadProfile(); refreshLive(); if($("view-guild")&&!$("view-guild").classList.contains("hidden")) loadGuild();
+    await claimSession(); startSessionGuard(); startPresence(); $("regPass").value=""; renderAccount(); beep("login"); loadProfile(); refreshLive(); if($("view-guild")&&!$("view-guild").classList.contains("hidden")) loadGuild();
     showVerifyView(em);
     $("verifyMsg").textContent="Sending code…";
     try{ const r=await sendEmailCodeFor(em); const fr=r&&r.FunctionResult;
@@ -1121,7 +1172,7 @@ async function startVerifyFromAccount(){
       :("Couldn't email a code"+(fr&&fr.error?(" ("+fr.error+")"):"")+"."); }
   catch(e){ $("verifyMsg").textContent="Couldn't email a code."; }
 }
-function doLogout(){ saved.account=null; persist(saved); storeLoaded=false; isAdmin=false; maintenance={on:false}; applyMaintenance(); if($("storeGrid")) $("storeGrid").innerHTML=""; if($("guildMembers")) $("guildMembers").innerHTML=""; if($("guildChatLog")) $("guildChatLog").innerHTML=""; if(typeof stopGuildChat==="function") stopGuildChat(); if(typeof guildSection==="function") guildSection("lock"); renderAccount(); beep(); loadStore(true); }
+function doLogout(){ saved.account=null; persist(saved); storeLoaded=false; isAdmin=false; maintenance={on:false}; applyMaintenance(); if($("storeGrid")) $("storeGrid").innerHTML=""; if($("guildMembers")) $("guildMembers").innerHTML=""; if($("guildChatLog")) $("guildChatLog").innerHTML=""; if(typeof stopGuildChat==="function") stopGuildChat(); if(typeof stopPresence==="function") stopPresence(); if(typeof guildSection==="function") guildSection("lock"); renderAccount(); beep(); loadStore(true); }
 
 
 async function loadProfile(){
@@ -2175,7 +2226,7 @@ if(!GND_INLINE_OK){
 }
 
 showTab("play");
-renderAccount(); applyState(); tick(); startRecheck(); refreshLive(); startLivePoll(); startSessionGuard();
+renderAccount(); applyState(); tick(); startRecheck(); refreshLive(); startLivePoll(); startSessionGuard(); initGamePresenceEvents(); startPresence();
 loadGithubNews(); setInterval(loadGithubNews, 30000);   // GitHub news for everyone, refreshed periodically
 
 // ---- guest session: anonymous PlayFab login so logged-out visitors can
