@@ -13,6 +13,14 @@
      gnd-news is already public (it serves the news), so the build is
      hosted there with no secret in this file.
 
+     Why an <iframe>: the launcher is a full-page app (Tailwind + 100vh
+     layout). Injecting it inline used to leak its CSS into the GoDaddy
+     page and stack below GoDaddy's own header, so the page height kept
+     growing and never settled. Rendering it inside a fixed-height iframe
+     isolates the launcher's CSS/JS completely, so the embed stays a
+     stable size instead of growing. srcdoc is same-origin, so the
+     launcher's scripts run natively — no re-execution hack needed.
+
      Publish target (change only if you move the file):
        https://raw.githubusercontent.com/GrigoriNight/gnd-news/main/Launcher.godaddy.html
      ===================================================================== -->
@@ -33,50 +41,27 @@
       '<span style="color:#888;font-size:12px">' + (msg || "") + '</span></div>';
   }
 
-  // Re-create one <script> so it actually executes (scripts set via innerHTML
-  // are inert per the HTML spec). External scripts are load-gated so the app
-  // script only runs once Tailwind / EmailJS / fflate are ready.
-  function runScript(old, done) {
-    var s = document.createElement("script"), i, a;
-    for (i = 0; i < old.attributes.length; i++) {
-      a = old.attributes[i];
-      s.setAttribute(a.name, a.value);
-    }
-    if (old.src) {
-      s.onload = s.onerror = function () { done(); };
-      document.body.appendChild(s);          // fetch starts on insert
-    } else {
-      s.text = old.textContent;
-      document.body.appendChild(s);          // classic inline runs synchronously
-      done();
-    }
-  }
-
-  function runAll(list, i) {
-    if (i >= list.length) return;
-    runScript(list[i], function () { runAll(list, i + 1); });
-  }
-
-  // Only these types execute; a data island (type="application/json") is left
-  // untouched so getElementById("gnd-news-data") still resolves for the app.
-  function isExecutable(el) {
-    var t = (el.getAttribute("type") || "").toLowerCase();
-    return t === "" || t === "text/javascript" || t === "application/javascript" || t === "module";
-  }
-
   fetch(SRC + "?t=" + Date.now())
     .then(function (r) {
       if (!r.ok) throw new Error("HTTP " + r.status);
       return r.text();
     })
     .then(function (html) {
-      mount.innerHTML = html;                // markup + <style> apply immediately
-      var all = [].slice.call(mount.querySelectorAll("script"));
-      var exec = [];
-      all.forEach(function (el) {
-        if (isExecutable(el)) { exec.push(el); el.parentNode.removeChild(el); }
-      });
-      runAll(exec, 0);                       // re-run JS scripts in document order
+      // Render the launcher inside an isolated, fixed-height iframe. This
+      // contains the launcher's full-viewport CSS so it can't grow the
+      // host GoDaddy page. srcdoc is same-origin, so the launcher's own
+      // <script> tags execute normally when the iframe parses them.
+      var frame = document.createElement("iframe");
+      frame.setAttribute("title", "GrigoriNight Dragon Launcher");
+      frame.style.cssText =
+        "display:block;width:100%;height:100vh;border:0;margin:0;background:#000";
+      frame.setAttribute("allow", "clipboard-write; fullscreen");
+      // Replace the loader placeholder with the framed launcher.
+      mount.replaceWith(frame);
+      // srcdoc keeps the iframe same-origin with this page, so the app can
+      // still read its own <script type="application/json"> news island and
+      // reach window helpers without cross-origin restrictions.
+      frame.srcdoc = html;
     })
     .catch(function (e) { fail(e && e.message); });
 })();
