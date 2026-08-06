@@ -14,7 +14,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -25,7 +25,7 @@ jobs:
           workspaces: src-tauri
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
 
@@ -57,13 +57,13 @@ jobs:
           echo "Prepared release assets:"; ls -la dist
 
       - name: Upload NSIS installer (.exe)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: GrigoriNightDragon-Setup-exe
           path: dist/GrigoriNightDragon-Setup.exe
 
       - name: Upload MSI installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: GrigoriNightDragon-Setup-msi
           path: src-tauri/target/release/bundle/msi/*.msi
