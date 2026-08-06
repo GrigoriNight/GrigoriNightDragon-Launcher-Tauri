@@ -198,6 +198,18 @@
       </div>
       <h3 class="uppercase tracking-widest text-gray-400 text-xs mb-3">Members</h3>
       <div id="guildMembers" class="space-y-2 mb-8"></div>
+
+      <h3 class="uppercase tracking-widest text-gray-400 text-xs mb-3">Guild Chat</h3>
+      <div class="border border-white/10 rounded-xl bg-white/[0.02] flex flex-col mb-8" style="height:340px">
+        <div id="guildChatLog" class="flex-1 overflow-y-auto p-4 space-y-2 text-sm"></div>
+        <div class="flex gap-2 border-t border-white/10 p-3">
+          <input id="guildChatInput" maxlength="500" autocomplete="off" placeholder="Message your guild…"
+                 class="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-red-500"
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();sendGuildChat();}"/>
+          <button id="guildChatSend" onclick="sendGuildChat()"
+                  class="px-4 py-2 border border-white/10 rounded-lg text-xs uppercase tracking-widest hover:bg-white/10">Send</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -510,7 +522,7 @@ const CONFIG = {
   gameExe: "GNDPlayFab.exe",   // the packaged UE5 game exe, run from the bundled game/ folder. Set to your real name (e.g. "Windows/GNDPlayFab.exe" if it sits in a subfolder).
   musicUrl: "https://img1.wsimg.com/blobby/go/4eb53488-7334-42b7-9c77-28becd180ebc/downloads/4cffe538-dcd7-40bf-8cc7-2a6667083f69/Untitled%20(3).mp3?ver=1784667822476"   // background music track
 };
-const LAUNCHER_VERSION = "1.0.2";   // bump this when you deploy a new launcher build
+const LAUNCHER_VERSION = "1.0.3";   // bump this when you deploy a new launcher build
 
 /* ===== GitHub-backed news ===== *
  * News lives in a PUBLIC repo so every player can read it without a token.
@@ -553,7 +565,7 @@ function showTab(name){
   if(name==="store") loadStore();
   if(name==="news") loadGithubNews();
   if(name==="mail") loadMail();
-  if(name==="guild") loadGuild();
+  if(name==="guild") loadGuild(); else if(typeof stopGuildChat==="function") stopGuildChat();
 }
 
 // ---- sound --------------------------------------------------------------
@@ -968,12 +980,61 @@ async function loadGuild(){
   try{
     const r=await mailCloud("getGuild",{});
     if(msg) msg.textContent="";
-    if(!r || !r.inGuild){ guildSection("empty"); return; }
+    if(!r || !r.inGuild){ stopGuildChat(); guildSection("empty"); return; }
     renderGuild(r);
+    startGuildChat();
   }catch(e){
+    stopGuildChat();
     guildSection("none");
     if(msg) msg.textContent="Guild service unavailable — deploy CloudScript. ("+(e.message||"error")+")";
   }
+}
+// ---- guild chat ---------------------------------------------------------
+let guildChatTimer=null;
+function stopGuildChat(){ if(guildChatTimer){ clearInterval(guildChatTimer); guildChatTimer=null; } }
+function startGuildChat(){
+  stopGuildChat();
+  loadGuildChat();
+  guildChatTimer=setInterval(()=>{
+    const v=$("view-guild");
+    if(!v || v.classList.contains("hidden") || !loggedIn()){ stopGuildChat(); return; }
+    loadGuildChat();
+  }, 7000);
+}
+function renderGuildChat(messages){
+  const box=$("guildChatLog"); if(!box) return;
+  const me=saved.account&&saved.account.playFabId;
+  const list=messages||[];
+  box.innerHTML=list.length ? list.map(m=>{
+    const mine=(me&&m.pid===me);
+    const gm=m.gm?`<span class="px-1.5 py-0.5 rounded bg-gradient-to-r from-amber-500 to-yellow-500 text-black text-[9px] font-bold uppercase tracking-widest">Game Master-GND</span>`:"";
+    const t=m.ts?new Date(m.ts).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"";
+    const nameCls=mine?"text-emerald-300":(m.gm?"text-amber-300":"text-gray-200");
+    return `<div class="leading-snug">
+      <span class="font-semibold ${nameCls}">${escapeHtml(m.name||"Player")}</span>
+      ${gm}
+      <span class="text-[10px] text-gray-600 ml-1">${t}</span>
+      <div class="text-gray-300 break-words whitespace-pre-wrap">${escapeHtml(m.text||"")}</div>
+    </div>`;
+  }).join("") : `<div class="text-gray-600 text-xs">No messages yet. Say hello 🐉</div>`;
+  box.scrollTop=box.scrollHeight;
+}
+async function loadGuildChat(){
+  try{ const r=await mailCloud("guildChatFetch",{}); renderGuildChat(r.messages||[]); }catch(e){}
+}
+async function sendGuildChat(){
+  const inp=$("guildChatInput"); if(!inp) return;
+  const text=inp.value.trim(); if(!text) return;
+  const btn=$("guildChatSend");
+  inp.value="";
+  if(btn) btn.disabled=true;
+  try{
+    const r=await mailCloud("guildChatSend",{text});
+    renderGuildChat(r.messages||[]);
+  }catch(e){
+    inp.value=text;
+    if($("guildMsg")) $("guildMsg").textContent="Chat send failed: "+(e.message||"error");
+  }finally{ if(btn) btn.disabled=false; inp.focus(); }
 }
 function authTab(which){ const login=which==="login";
   if($("formVerify")) $("formVerify").classList.add("hidden");
@@ -1060,7 +1121,7 @@ async function startVerifyFromAccount(){
       :("Couldn't email a code"+(fr&&fr.error?(" ("+fr.error+")"):"")+"."); }
   catch(e){ $("verifyMsg").textContent="Couldn't email a code."; }
 }
-function doLogout(){ saved.account=null; persist(saved); storeLoaded=false; isAdmin=false; maintenance={on:false}; applyMaintenance(); if($("storeGrid")) $("storeGrid").innerHTML=""; if($("guildMembers")) $("guildMembers").innerHTML=""; if(typeof guildSection==="function") guildSection("lock"); renderAccount(); beep(); loadStore(true); }
+function doLogout(){ saved.account=null; persist(saved); storeLoaded=false; isAdmin=false; maintenance={on:false}; applyMaintenance(); if($("storeGrid")) $("storeGrid").innerHTML=""; if($("guildMembers")) $("guildMembers").innerHTML=""; if($("guildChatLog")) $("guildChatLog").innerHTML=""; if(typeof stopGuildChat==="function") stopGuildChat(); if(typeof guildSection==="function") guildSection("lock"); renderAccount(); beep(); loadStore(true); }
 
 
 async function loadProfile(){
@@ -1559,7 +1620,10 @@ async function sha256Hex(buf){ const d=await crypto.subtle.digest("SHA-256",buf)
 async function getManifest(){
   let hash=(CONFIG.expectedHash||"").trim().toLowerCase(); let size=0,file=CONFIG.saveName,version=null,launcherVersion=null;
   if(CONFIG.manifestUrl){ try{ const r=await fetch(CONFIG.manifestUrl,{cache:"no-store"}); if(r.ok){ const m=await r.json();
-        if(m.sha256)hash=String(m.sha256).trim().toLowerCase(); if(m.size)size=Number(m.size); if(m.file)file=m.file; if(m.version)version=String(m.version); if(m.launcherVersion)launcherVersion=String(m.launcherVersion); } }catch{} }
+        if(m.sha256)hash=String(m.sha256).trim().toLowerCase(); if(m.size)size=Number(m.size); if(m.file)file=m.file; if(m.version)version=String(m.version); if(m.launcherVersion)launcherVersion=String(m.launcherVersion);
+        // Manifest is the single source of truth for download locations: override the
+        // hardcoded CONFIG so new builds auto-resolve where to fetch the installer + game.
+        if(m.launcherUrl)CONFIG.launcherUrl=String(m.launcherUrl); if(m.gameUrl)CONFIG.gameUrl=String(m.gameUrl); } }catch{} }
   return {hash,size,file,version,launcherVersion};
 }
 async function refreshManifest(){

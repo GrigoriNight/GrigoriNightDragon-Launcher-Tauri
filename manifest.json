@@ -1,7 +1,9 @@
 {
   "version": "1.0.0",
-  "launcherVersion": "1.0.2",
+  "launcherVersion": "1.0.3",
+  "launcherUrl": "https://github.com/GrigoriNight/GrigoriNightDragon-Launcher-Tauri/releases/download/latest-build/GrigoriNightDragon-Setup.exe",
+  "gameUrl": "https://github.com/GrigoriNight/GrigoriNightDragon-Launcher-Tauri/releases/download/game-files/game.zip",
   "file": "game.zip",
-  "size": 0,
-  "sha256": ""
+  "size": 2813102,
+  "sha256": "5400a37c10084ae5915c62886043d41e5cbdab9432189891432c30cb102e10d7"
 }

@@ -50,8 +50,10 @@ jobs:
           mkdir -p dist
           EXE=$(ls src-tauri/target/release/bundle/nsis/*-setup.exe | head -n1)
           cp "$EXE" "dist/GrigoriNightDragon-Setup.exe"
-          # manifest.json for launcher self-update: preserve game fields, stamp launcherVersion
-          node -e "const fs=require('fs');const v=process.argv[1];const m=JSON.parse(fs.readFileSync('manifest.json','utf8'));m.launcherVersion=v;fs.writeFileSync('dist/manifest.json',JSON.stringify(m,null,2));" "$APP_VERSION"
+          # manifest.json for launcher self-update: preserve game fields (incl. gameUrl),
+          # stamp launcherVersion + the just-built installer URL so new builds auto-resolve.
+          REPO_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+          node -e "const fs=require('fs');const v=process.argv[1];const base=process.argv[2];const m=JSON.parse(fs.readFileSync('manifest.json','utf8'));m.launcherVersion=v;m.launcherUrl=base+'/releases/download/latest-build/GrigoriNightDragon-Setup.exe';fs.writeFileSync('dist/manifest.json',JSON.stringify(m,null,2));" "$APP_VERSION" "$REPO_URL"
           echo "Prepared release assets:"; ls -la dist
 
       - name: Upload NSIS installer (.exe)
