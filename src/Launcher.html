@@ -1535,7 +1535,7 @@ function applyState(){
   }
   lastPrimary=primary;
   const iv=saved.installedVersion?(saved.installedVersion==="installed"?"installed":"v"+saved.installedVersion):"not installed";
-  $("verInfo").innerText="Installed: "+iv+(latestVersion?"  •  Latest: v"+latestVersion:"");
+  $("verInfo").innerText="Launcher v"+LAUNCHER_VERSION+"  •  Game: "+iv+(latestVersion?"  •  Latest: v"+latestVersion:"");
   gateButtons();
 }
 function setBusy(state){ busy=state; gateButtons(); }
@@ -2033,6 +2033,7 @@ async function copyBanAppeal(){
 }
 
 // ---- init / event wiring ------------------------------------------------
+try{ $("verInfo").innerText="Launcher v"+LAUNCHER_VERSION; }catch{}
 try{ const g=JSON.parse(sessionStorage.getItem("gnd_lu")||"{}"); if(g.target && String(g.target)===String(LAUNCHER_VERSION)) sessionStorage.removeItem("gnd_lu"); }catch{}
 $("settingsBtn").addEventListener("click", openSettings);
 $("accountModal").addEventListener("click",(e)=>{ if(e.target===$("accountModal")) closeAccount(); });
